@@ -154,15 +154,15 @@ with menu[1]:
 
     st.subheader("📊 KPIs y Gráficas del COT")
 
-data = sheet.get_all_records()
+    data = sheet.get_all_records()
 
-if len(data) == 0:
-    st.info("Aún no hay registros para mostrar KPIs.")
-else:
-    df = pd.DataFrame(data)
-    df["Fecha"] = pd.to_datetime(df["Fecha Registro"]).dt.date
+    if len(data) == 0:
+        st.info("Aún no hay registros para mostrar KPIs.")
+    else:
+        df = pd.DataFrame(data)
+        df["Fecha"] = pd.to_datetime(df["Fecha Registro"]).dt.date
 
-
+        # ------------------- KPI PRINCIPALES -------------------
         colk1, colk2, colk3 = st.columns(3)
         colk1.metric("Total de Registros", len(df))
         colk2.metric("Áreas Reportando", df["Área"].nunique())
@@ -170,12 +170,17 @@ else:
 
         st.markdown("---")
 
+        # ------------------- Tendencia -------------------
         st.subheader("📈 Tendencia de registros en el tiempo")
         trend = df.groupby("Fecha").size().reset_index(name="Cantidad")
-        st.plotly_chart(px.line(trend, x="Fecha", y="Cantidad", markers=True), use_container_width=True)
+        st.plotly_chart(
+            px.line(trend, x="Fecha", y="Cantidad", markers=True),
+            use_container_width=True
+        )
 
         st.markdown("---")
 
+        # ------------------- Participación por Área -------------------
         st.subheader("🏆 Participación por Área")
         area_count = df["Área"].value_counts().reset_index()
         area_count.columns = ["Área", "Cantidad"]
@@ -187,39 +192,52 @@ else:
             bottom_area = area_count.iloc[-1]
             st.warning(f"Área con menor aporte: {bottom_area['Área']} ({bottom_area['Cantidad']} registros)")
 
-        st.plotly_chart(px.bar(area_count, x="Área", y="Cantidad", text="Cantidad", color="Cantidad"),
-                        use_container_width=True)
+        st.plotly_chart(
+            px.bar(area_count, x="Área", y="Cantidad", text="Cantidad", color="Cantidad"),
+            use_container_width=True
+        )
 
         st.markdown("---")
 
+        # ------------------- Ranking Supervisores -------------------
         st.subheader("👤 Ranking de Supervisores")
         sup_count = df["Supervisor Área"].value_counts().reset_index()
         sup_count.columns = ["Supervisor", "Cantidad"]
 
-        st.info(f"Supervisor Top: {sup_count.iloc[0]['Supervisor']} con {sup_count.iloc[0]['Cantidad']} registros")
+        st.info(
+            f"Supervisor Top: {sup_count.iloc[0]['Supervisor']} "
+            f"con {sup_count.iloc[0]['Cantidad']} registros"
+        )
 
-        st.plotly_chart(px.bar(sup_count, x="Supervisor", y="Cantidad", text="Cantidad", color="Cantidad"),
-                        use_container_width=True)
+        st.plotly_chart(
+            px.bar(sup_count, x="Supervisor", y="Cantidad", text="Cantidad", color="Cantidad"),
+            use_container_width=True
+        )
 
         st.markdown("---")
 
+        # ------------------- Heatmap -------------------
         st.subheader("🔥 Mapa de Participación por Día y Área")
         heat = df.groupby(["Fecha", "Área"]).size().reset_index(name="Cantidad")
-        st.plotly_chart(px.density_heatmap(
-            heat,
-            x="Fecha",
-            y="Área",
-            z="Cantidad",
-            color_continuous_scale="Blues"
-        ), use_container_width=True)
+        st.plotly_chart(
+            px.density_heatmap(
+                heat,
+                x="Fecha",
+                y="Área",
+                z="Cantidad",
+                color_continuous_scale="Blues"
+            ),
+            use_container_width=True
+        )
 
         st.markdown("---")
 
+        # ------------------- Cumplimiento -------------------
         st.subheader("🎯 % Cumplimiento de Meta")
         meta = st.slider("Meta mínima diaria de registros:", 1, 50, 5)
 
         cumplimiento = []
-        for day, total in trend.values:
+        for _, total in trend.values:
             cumplimiento.append(min(100, int((total / meta) * 100)))
 
         avg_cumplimiento = int(sum(cumplimiento) / len(cumplimiento))
@@ -230,4 +248,5 @@ else:
             st.warning(f"Cumplimiento promedio: {avg_cumplimiento}%")
         else:
             st.error(f"Cumplimiento promedio: {avg_cumplimiento}%")
+
 
