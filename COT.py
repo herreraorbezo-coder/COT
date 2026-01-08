@@ -6,6 +6,7 @@ import gspread
 from google.oauth2.service_account import Credentials
 from pydrive2.auth import GoogleAuth
 from pydrive2.drive import GoogleDrive
+import json
 import os
 
 
@@ -15,18 +16,34 @@ scope = [
     "https://www.googleapis.com/auth/drive"
 ]
 
+# ---------- GOOGLE SHEETS (gspread) ----------
 creds = Credentials.from_service_account_info(
     st.secrets["GOOGLE_SHEETS_CREDENTIALS"],
     scopes=scope
 )
 
-# Google Sheets
 cliente = gspread.authorize(creds)
 sheet = cliente.open("COT_AGUAYTIA").sheet1
 
-# Google Drive
+
+# ---------- GOOGLE DRIVE (pydrive2) ----------
 gauth = GoogleAuth()
-gauth.credentials = creds
+
+gauth.settings["client_config_backend"] = "service"
+gauth.settings["service_config"] = {
+    "type": st.secrets["GOOGLE_SHEETS_CREDENTIALS"]["type"],
+    "project_id": st.secrets["GOOGLE_SHEETS_CREDENTIALS"]["project_id"],
+    "private_key_id": st.secrets["GOOGLE_SHEETS_CREDENTIALS"]["private_key_id"],
+    "private_key": st.secrets["GOOGLE_SHEETS_CREDENTIALS"]["private_key"],
+    "client_email": st.secrets["GOOGLE_SHEETS_CREDENTIALS"]["client_email"],
+    "client_id": st.secrets["GOOGLE_SHEETS_CREDENTIALS"]["client_id"],
+    "auth_uri": st.secrets["GOOGLE_SHEETS_CREDENTIALS"]["auth_uri"],
+    "token_uri": st.secrets["GOOGLE_SHEETS_CREDENTIALS"]["token_uri"],
+    "auth_provider_x509_cert_url": st.secrets["GOOGLE_SHEETS_CREDENTIALS"]["auth_provider_x509_cert_url"],
+    "client_x509_cert_url": st.secrets["GOOGLE_SHEETS_CREDENTIALS"]["client_x509_cert_url"]
+}
+
+gauth.ServiceAuth()
 drive = GoogleDrive(gauth)
 
 AST_FOLDER_ID = "1PhQg9p6NL4C6WYVSPIKB4P_vmLZbUYHn"
@@ -106,7 +123,6 @@ with menu[0]:
 
         enviar = st.form_submit_button("GUARDAR REGISTRO")
 
-    # ========================== GUARDAR ==========================
     if enviar:
         if descripcion.strip() == "" or supervisor_trabajo.strip() == "" or dueno_area.strip() == "":
             st.error("⚠️ No puedes registrar. Hay campos obligatorios vacíos.")
@@ -130,12 +146,10 @@ with menu[0]:
 
             st.session_state.archivos.append(archivo)
 
-            # ========================== SUBIR AST A DRIVE ==========================
             ast_link = "No adjuntado"
 
             if archivo is not None:
                 temp_path = archivo.name
-
                 with open(temp_path, "wb") as f:
                     f.write(archivo.getbuffer())
 
@@ -153,10 +167,8 @@ with menu[0]:
                 })
 
                 ast_link = f"https://drive.google.com/file/d/{gfile['id']}/view"
-
                 os.remove(temp_path)
 
-            # ========================== GUARDAR EN GOOGLE SHEETS ==========================
             sheet.append_row([
                 fecha_registro,
                 st.session_state.area,
@@ -173,11 +185,6 @@ with menu[0]:
 
     st.subheader("HISTÓRICO DE REGISTROS EN SESIÓN")
     st.dataframe(st.session_state.registros, use_container_width=True)
-
-    st.subheader("Descargar ATS Guardados")
-    for file in st.session_state.archivos:
-        if file:
-            st.download_button(f"Descargar {file.name}", file, file.name)
 
 
 # ====================================================================================
@@ -202,7 +209,6 @@ with menu[1]:
 
         st.markdown("---")
 
-        st.subheader("📈 Tendencia de registros en el tiempo")
         trend = df.groupby("Fecha").size().reset_index(name="Cantidad")
         st.plotly_chart(
             px.line(trend, x="Fecha", y="Cantidad", markers=True),
@@ -211,7 +217,6 @@ with menu[1]:
 
         st.markdown("---")
 
-        st.subheader("🏆 Participación por Área")
         area_count = df["Área"].value_counts().reset_index()
         area_count.columns = ["Área", "Cantidad"]
 
@@ -222,7 +227,6 @@ with menu[1]:
 
         st.markdown("---")
 
-        st.subheader("👤 Ranking de Supervisores")
         sup_count = df["Supervisor Área"].value_counts().reset_index()
         sup_count.columns = ["Supervisor", "Cantidad"]
 
@@ -233,7 +237,6 @@ with menu[1]:
 
         st.markdown("---")
 
-        st.subheader("🔥 Mapa de Participación por Día y Área")
         heat = df.groupby(["Fecha", "Área"]).size().reset_index(name="Cantidad")
         st.plotly_chart(
             px.density_heatmap(
@@ -248,7 +251,6 @@ with menu[1]:
 
         st.markdown("---")
 
-        st.subheader("🎯 % Cumplimiento de Meta")
         meta = st.slider("Meta mínima diaria de registros:", 1, 50, 5)
 
         cumplimiento = []
