@@ -3,23 +3,25 @@ import pandas as pd
 from datetime import datetime
 import plotly.express as px
 import gspread
-import json
-from oauth2client.service_account import ServiceAccountCredentials
+from google.oauth2.service_account import Credentials
+
+
+# ========================== GOOGLE SHEETS AUTH ==========================
 scope = [
-    "https://spreadsheets.google.com/feeds",
+    "https://www.googleapis.com/auth/spreadsheets",
     "https://www.googleapis.com/auth/drive"
 ]
 
-cred = ServiceAccountCredentials.from_json_keyfile_dict(
-    st.secrets["GOOGLE_SHEETS_CREDENTIALS"], 
-    scope
+creds = Credentials.from_service_account_info(
+    st.secrets["GOOGLE_SHEETS_CREDENTIALS"],
+    scopes=scope
 )
 
-cliente = gspread.authorize(cred)
+cliente = gspread.authorize(creds)
+sheet = cliente.open("COT_AGUAYTIA").sheet1   # Nombre EXACTO del Google Sheets
 
-sheet = cliente.open("COT_AGUAYTIA").sheet1   # Nombre EXACTO de tu Google Sheet
 
-# -------------------------------- CONFIG --------------------------------
+# ========================== CONFIG STREAMLIT ==========================
 st.set_page_config(
     page_title="SISTEMA COT - AGUAYTÍA ENERGY S.R.L.",
     layout="wide",
@@ -29,7 +31,8 @@ st.set_page_config(
 st.title("SISTEMA COT - AGUAYTÍA ENERGY S.R.L.")
 st.write("Plataforma para registro de actividades destinadas al COT")
 
-# --------------------------- BASE DE DATOS TEMPORAL ---------------------------
+
+# ========================== BASE TEMPORAL PARA DASHBOARD ==========================
 if "registros" not in st.session_state:
     st.session_state.registros = pd.DataFrame(columns=[
         "Fecha Registro",
@@ -44,7 +47,8 @@ if "registros" not in st.session_state:
 if "archivos" not in st.session_state:
     st.session_state.archivos = []
 
-# -------------------------------- AREAS Y SUPERVISORES --------------------------------
+
+# ========================== AREAS ==========================
 areas = {
     "PRODUCCION": ["BREYSON TALLEDO", "MIGUEL CRUZ"],
     "MANTENIMIENTO": ["NILTON HINOSTROZA", "GUSTAVO VASQUEZ"],
@@ -53,11 +57,11 @@ areas = {
     "EHS": ["JOSE BENDEZU", "JACKER RUIZ", "MARCO ALVARADO"]
 }
 
-# -------------------- MENU SUPERIOR --------------------
 menu = st.tabs(["📋 Registrar Actividad", "📊 Dashboard / KPIs"])
 
+
 # ====================================================================================
-#                                TAB REGISTRO
+#                               TAB REGISTRO
 # ====================================================================================
 with menu[0]:
 
@@ -67,7 +71,7 @@ with menu[0]:
         st.session_state.area = "PRODUCCION"
 
     st.session_state.area = st.selectbox("ÁREA", list(areas.keys()))
-
+    
     with st.form("formulario_cot", clear_on_submit=True):
 
         supervisor = st.selectbox("SUPERVISOR", areas[st.session_state.area])
@@ -91,6 +95,8 @@ with menu[0]:
 
         enviar = st.form_submit_button("GUARDAR REGISTRO")
 
+
+    # ========================== GUARDAR ==========================
     if enviar:
         if descripcion.strip() == "" or supervisor_trabajo.strip() == "" or dueno_area.strip() == "":
             st.error("⚠️ No puedes registrar. Hay campos obligatorios vacíos.")
@@ -107,6 +113,7 @@ with menu[0]:
                 "Archivo ATS": archivo.name if archivo else "No adjuntado"
             }
 
+            # Guardar en dataframe local para dashboard
             st.session_state.registros = pd.concat(
                 [st.session_state.registros, pd.DataFrame([nuevo_registro])],
                 ignore_index=True
@@ -114,20 +121,34 @@ with menu[0]:
 
             st.session_state.archivos.append(archivo)
 
+            # ========================== GUARDAR EN GOOGLE SHEETS ==========================
+            sheet.append_row([
+                fecha_registro,
+                st.session_state.area,
+                supervisor,
+                descripcion,
+                supervisor_trabajo,
+                dueno_area,
+                archivo.name if archivo else "No adjuntado"
+            ])
+
             st.success("Registro almacenado correctamente.")
             st.write("### Resumen del Registro")
             st.write(nuevo_registro)
 
+
     st.subheader("HISTÓRICO DE REGISTROS EN SESIÓN")
     st.dataframe(st.session_state.registros, use_container_width=True)
+
 
     st.subheader("Descargar ATS Guardados")
     for file in st.session_state.archivos:
         if file:
             st.download_button(f"Descargar {file.name}", file, file.name)
 
+
 # ====================================================================================
-#                                TAB DASHBOARD
+#                               TAB DASHBOARD
 # ====================================================================================
 with menu[1]:
 
@@ -139,7 +160,6 @@ with menu[1]:
         df = st.session_state.registros.copy()
         df["Fecha"] = pd.to_datetime(df["Fecha Registro"]).dt.date
 
-        # ------------------- KPI PRINCIPALES -------------------
         colk1, colk2, colk3 = st.columns(3)
         colk1.metric("Total de Registros", len(df))
         colk2.metric("Áreas Reportando", df["Área"].nunique())
@@ -147,15 +167,12 @@ with menu[1]:
 
         st.markdown("---")
 
-        # ------------------- KPI 1 Tendencia en el tiempo -------------------
         st.subheader("📈 Tendencia de registros en el tiempo")
         trend = df.groupby("Fecha").size().reset_index(name="Cantidad")
-        fig_trend = px.line(trend, x="Fecha", y="Cantidad", markers=True)
-        st.plotly_chart(fig_trend, use_container_width=True)
+        st.plotly_chart(px.line(trend, x="Fecha", y="Cantidad", markers=True), use_container_width=True)
 
         st.markdown("---")
 
-        # ------------------- KPI 2 Participación por área mejorada -------------------
         st.subheader("🏆 Participación por Área")
         area_count = df["Área"].value_counts().reset_index()
         area_count.columns = ["Área", "Cantidad"]
@@ -167,38 +184,34 @@ with menu[1]:
             bottom_area = area_count.iloc[-1]
             st.warning(f"Área con menor aporte: {bottom_area['Área']} ({bottom_area['Cantidad']} registros)")
 
-        fig_area = px.bar(area_count, x="Área", y="Cantidad", text="Cantidad", color="Cantidad")
-        st.plotly_chart(fig_area, use_container_width=True)
+        st.plotly_chart(px.bar(area_count, x="Área", y="Cantidad", text="Cantidad", color="Cantidad"),
+                        use_container_width=True)
 
         st.markdown("---")
 
-        # ------------------- KPI 3 Ranking de Supervisores -------------------
         st.subheader("👤 Ranking de Supervisores")
         sup_count = df["Supervisor Área"].value_counts().reset_index()
         sup_count.columns = ["Supervisor", "Cantidad"]
 
         st.info(f"Supervisor Top: {sup_count.iloc[0]['Supervisor']} con {sup_count.iloc[0]['Cantidad']} registros")
 
-        fig_sup = px.bar(sup_count, x="Supervisor", y="Cantidad", text="Cantidad", color="Cantidad")
-        st.plotly_chart(fig_sup, use_container_width=True)
+        st.plotly_chart(px.bar(sup_count, x="Supervisor", y="Cantidad", text="Cantidad", color="Cantidad"),
+                        use_container_width=True)
 
         st.markdown("---")
 
-        # ------------------- KPI 6 Heatmap participación -------------------
         st.subheader("🔥 Mapa de Participación por Día y Área")
         heat = df.groupby(["Fecha", "Área"]).size().reset_index(name="Cantidad")
-        fig_heat = px.density_heatmap(
+        st.plotly_chart(px.density_heatmap(
             heat,
             x="Fecha",
             y="Área",
             z="Cantidad",
             color_continuous_scale="Blues"
-        )
-        st.plotly_chart(fig_heat, use_container_width=True)
+        ), use_container_width=True)
 
         st.markdown("---")
 
-        # ------------------- KPI 7 % Cumplimiento meta -------------------
         st.subheader("🎯 % Cumplimiento de Meta")
         meta = st.slider("Meta mínima diaria de registros:", 1, 50, 5)
 
@@ -214,6 +227,3 @@ with menu[1]:
             st.warning(f"Cumplimiento promedio: {avg_cumplimiento}%")
         else:
             st.error(f"Cumplimiento promedio: {avg_cumplimiento}%")
-
-
-
