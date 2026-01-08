@@ -2,6 +2,19 @@ import streamlit as st
 import pandas as pd
 from datetime import datetime
 import plotly.express as px
+import gspread
+import json
+from oauth2client.service_account import ServiceAccountCredentials
+scope = [
+    "https://spreadsheets.google.com/feeds",
+    "https://www.googleapis.com/auth/drive"
+]
+
+credenciales_dict = json.loads(st.secrets["GOOGLE_SHEETS_CREDENTIALS"])
+cred = ServiceAccountCredentials.from_json_keyfile_dict(credenciales_dict, scope)
+cliente = gspread.authorize(cred)
+
+sheet = cliente.open("COT_AGUAYTIA").sheet1   # Nombre EXACTO de tu Google Sheet
 
 # -------------------------------- CONFIG --------------------------------
 st.set_page_config(
@@ -198,4 +211,5 @@ with menu[1]:
             st.warning(f"Cumplimiento promedio: {avg_cumplimiento}%")
         else:
             st.error(f"Cumplimiento promedio: {avg_cumplimiento}%")
+
 
