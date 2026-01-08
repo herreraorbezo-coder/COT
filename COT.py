@@ -145,7 +145,6 @@ with menu[0]:
                     body=file_metadata,
                     media_body=media,
                     fields="id",
-                    supportsAllDrives=True
                 ).execute()
 
                 drive_service.permissions().create(
@@ -154,7 +153,6 @@ with menu[0]:
                         "type": "anyone",
                         "role": "reader"
                     },
-                    supportsAllDrives=True
                 ).execute()
 
                 ast_link = f"https://drive.google.com/file/d/{uploaded['id']}/view"
@@ -255,3 +253,4 @@ with menu[1]:
             st.warning(f"Cumplimiento promedio: {avg_cumplimiento}%")
         else:
             st.error(f"Cumplimiento promedio: {avg_cumplimiento}%")
+
