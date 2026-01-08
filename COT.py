@@ -4,10 +4,9 @@ from datetime import datetime
 import plotly.express as px
 import gspread
 from google.oauth2.service_account import Credentials
-from pydrive2.auth import GoogleAuth
-from pydrive2.drive import GoogleDrive
-import json
-import os
+from googleapiclient.discovery import build
+from googleapiclient.http import MediaIoBaseUpload
+import io
 
 
 # ========================== GOOGLE AUTH ==========================
@@ -16,35 +15,17 @@ scope = [
     "https://www.googleapis.com/auth/drive"
 ]
 
-# ---------- GOOGLE SHEETS (gspread) ----------
 creds = Credentials.from_service_account_info(
     st.secrets["GOOGLE_SHEETS_CREDENTIALS"],
     scopes=scope
 )
 
+# Google Sheets
 cliente = gspread.authorize(creds)
 sheet = cliente.open("COT_AGUAYTIA").sheet1
 
-
-# ---------- GOOGLE DRIVE (pydrive2) ----------
-gauth = GoogleAuth()
-
-gauth.settings["client_config_backend"] = "service"
-gauth.settings["service_config"] = {
-    "type": st.secrets["GOOGLE_SHEETS_CREDENTIALS"]["type"],
-    "project_id": st.secrets["GOOGLE_SHEETS_CREDENTIALS"]["project_id"],
-    "private_key_id": st.secrets["GOOGLE_SHEETS_CREDENTIALS"]["private_key_id"],
-    "private_key": st.secrets["GOOGLE_SHEETS_CREDENTIALS"]["private_key"],
-    "client_email": st.secrets["GOOGLE_SHEETS_CREDENTIALS"]["client_email"],
-    "client_id": st.secrets["GOOGLE_SHEETS_CREDENTIALS"]["client_id"],
-    "auth_uri": st.secrets["GOOGLE_SHEETS_CREDENTIALS"]["auth_uri"],
-    "token_uri": st.secrets["GOOGLE_SHEETS_CREDENTIALS"]["token_uri"],
-    "auth_provider_x509_cert_url": st.secrets["GOOGLE_SHEETS_CREDENTIALS"]["auth_provider_x509_cert_url"],
-    "client_x509_cert_url": st.secrets["GOOGLE_SHEETS_CREDENTIALS"]["client_x509_cert_url"]
-}
-
-gauth.ServiceAuth()
-drive = GoogleDrive(gauth)
+# Google Drive (API nativa)
+drive_service = build("drive", "v3", credentials=creds)
 
 AST_FOLDER_ID = "1PhQg9p6NL4C6WYVSPIKB4P_vmLZbUYHn"
 
@@ -149,25 +130,32 @@ with menu[0]:
             ast_link = "No adjuntado"
 
             if archivo is not None:
-                temp_path = archivo.name
-                with open(temp_path, "wb") as f:
-                    f.write(archivo.getbuffer())
+                media = MediaIoBaseUpload(
+                    io.BytesIO(archivo.getbuffer()),
+                    mimetype=archivo.type,
+                    resumable=True
+                )
 
-                gfile = drive.CreateFile({
-                    "title": archivo.name,
-                    "parents": [{"id": AST_FOLDER_ID}]
-                })
+                file_metadata = {
+                    "name": archivo.name,
+                    "parents": [AST_FOLDER_ID]
+                }
 
-                gfile.SetContentFile(temp_path)
-                gfile.Upload()
+                uploaded = drive_service.files().create(
+                    body=file_metadata,
+                    media_body=media,
+                    fields="id"
+                ).execute()
 
-                gfile.InsertPermission({
-                    "type": "anyone",
-                    "role": "reader"
-                })
+                drive_service.permissions().create(
+                    fileId=uploaded["id"],
+                    body={
+                        "type": "anyone",
+                        "role": "reader"
+                    }
+                ).execute()
 
-                ast_link = f"https://drive.google.com/file/d/{gfile['id']}/view"
-                os.remove(temp_path)
+                ast_link = f"https://drive.google.com/file/d/{uploaded['id']}/view"
 
             sheet.append_row([
                 fecha_registro,
