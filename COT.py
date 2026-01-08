@@ -5,6 +5,7 @@ import plotly.express as px
 import gspread
 from google.oauth2.service_account import Credentials
 
+AST_FOLDER_ID = "1PhQg9p6NL4C6WYVSPIKB4P_vmLZbUYHn"
 
 # ========================== GOOGLE SHEETS AUTH ==========================
 scope = [
@@ -248,5 +249,6 @@ with menu[1]:
             st.warning(f"Cumplimiento promedio: {avg_cumplimiento}%")
         else:
             st.error(f"Cumplimiento promedio: {avg_cumplimiento}%")
+
 
 
