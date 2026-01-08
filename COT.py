@@ -45,7 +45,7 @@ menu = st.tabs(["📋 Registrar Actividad", "📊 Dashboard / KPIs"])
 # ====================================================================================
 with menu[0]:
 
-    st.subheader("DATOS DEL SUPERVISOR")
+    st.subheader("DATOS GENERALES")
 
     if "area" not in st.session_state:
         st.session_state.area = "PRODUCCION"
@@ -198,3 +198,4 @@ with menu[1]:
             st.warning(f"Cumplimiento promedio: {avg_cumplimiento}%")
         else:
             st.error(f"Cumplimiento promedio: {avg_cumplimiento}%")
+
