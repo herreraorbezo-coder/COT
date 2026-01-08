@@ -24,7 +24,7 @@ creds = Credentials.from_service_account_info(
 cliente = gspread.authorize(creds)
 sheet = cliente.open("COT_AGUAYTIA").sheet1
 
-# Google Drive (API nativa)
+# Google Drive
 drive_service = build("drive", "v3", credentials=creds)
 
 AST_FOLDER_ID = "1PhQg9p6NL4C6WYVSPIKB4P_vmLZbUYHn"
@@ -133,7 +133,7 @@ with menu[0]:
                 media = MediaIoBaseUpload(
                     io.BytesIO(archivo.getbuffer()),
                     mimetype=archivo.type,
-                    resumable=True
+                    resumable=False
                 )
 
                 file_metadata = {
