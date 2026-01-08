@@ -18,7 +18,6 @@ creds = Credentials.from_service_account_info(
     scopes=scope
 )
 
-# Google Sheets
 cliente = gspread.authorize(creds)
 sheet = cliente.open("COT_AGUAYTIA").sheet1
 
@@ -32,19 +31,6 @@ st.set_page_config(
 
 st.title("SISTEMA COT - AGUAYTÍA ENERGY S.R.L.")
 st.write("Plataforma para registro de actividades destinadas al COT")
-
-
-# ========================== BASE TEMPORAL PARA DASHBOARD ==========================
-if "registros" not in st.session_state:
-    st.session_state.registros = pd.DataFrame(columns=[
-        "Fecha Registro",
-        "Área",
-        "Supervisor Área",
-        "Descripción Actividad",
-        "Supervisor de Trabajo",
-        "Dueño de Área",
-        "Archivo ATS"
-    ])
 
 
 # ========================== AREAS ==========================
@@ -109,11 +95,6 @@ with menu[0]:
                 "Archivo ATS": archivo_ats
             }
 
-            st.session_state.registros = pd.concat(
-                [st.session_state.registros, pd.DataFrame([nuevo_registro])],
-                ignore_index=True
-            )
-
             sheet.append_row([
                 fecha_registro,
                 st.session_state.area,
@@ -128,8 +109,15 @@ with menu[0]:
             st.write("### Resumen del Registro")
             st.write(nuevo_registro)
 
-    st.subheader("HISTÓRICO DE REGISTROS EN SESIÓN")
-    st.dataframe(st.session_state.registros, use_container_width=True)
+    st.subheader("HISTÓRICO DE REGISTROS")
+
+    data_historico = sheet.get_all_records()
+
+    if len(data_historico) == 0:
+        st.info("Aún no hay registros almacenados.")
+    else:
+        df_historico = pd.DataFrame(data_historico)
+        st.dataframe(df_historico, use_container_width=True)
 
 
 # ====================================================================================
@@ -210,4 +198,3 @@ with menu[1]:
             st.warning(f"Cumplimiento promedio: {avg_cumplimiento}%")
         else:
             st.error(f"Cumplimiento promedio: {avg_cumplimiento}%")
-
