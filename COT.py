@@ -7,9 +7,8 @@ from google.oauth2.service_account import Credentials
 from pydrive2.auth import GoogleAuth
 from pydrive2.drive import GoogleDrive
 
-# =============================================================================
-#                               GOOGLE AUTH
-# =============================================================================
+
+# ========================== GOOGLE AUTH ==========================
 scope = [
     "https://www.googleapis.com/auth/spreadsheets",
     "https://www.googleapis.com/auth/drive"
@@ -22,20 +21,17 @@ creds = Credentials.from_service_account_info(
 
 # Google Sheets
 cliente = gspread.authorize(creds)
-sheet = cliente.open("COT_AGUAYTIA").sheet1  # Nombre EXACTO del Sheet
+sheet = cliente.open("COT_AGUAYTIA").sheet1
 
 # Google Drive
 gauth = GoogleAuth()
 gauth.credentials = creds
 drive = GoogleDrive(gauth)
 
-# ID de la carpeta de Drive donde se guardan los AST
 AST_FOLDER_ID = "1PhQg9p6NL4C6WYVSPIKB4P_vmLZbUYHn"
 
 
-# =============================================================================
-#                               STREAMLIT CONFIG
-# =============================================================================
+# ========================== CONFIG STREAMLIT ==========================
 st.set_page_config(
     page_title="SISTEMA COT - AGUAYTÍA ENERGY S.R.L.",
     layout="wide",
@@ -46,15 +42,15 @@ st.title("SISTEMA COT - AGUAYTÍA ENERGY S.R.L.")
 st.write("Plataforma para registro de actividades destinadas al COT")
 
 
-# =============================================================================
-#                               DATA TEMPORAL
-# =============================================================================
+# ========================== BASE TEMPORAL ==========================
 if "registros" not in st.session_state:
     st.session_state.registros = pd.DataFrame()
 
-# =============================================================================
-#                               AREAS
-# =============================================================================
+if "archivos" not in st.session_state:
+    st.session_state.archivos = []
+
+
+# ========================== AREAS ==========================
 areas = {
     "PRODUCCION": ["BREYSON TALLEDO", "MIGUEL CRUZ"],
     "MANTENIMIENTO": ["NILTON HINOSTROZA", "GUSTAVO VASQUEZ"],
@@ -78,28 +74,30 @@ with menu[0]:
 
     with st.form("formulario_cot", clear_on_submit=True):
 
-        descripcion = st.text_area("DESCRIPCIÓN DE LA ACTIVIDAD *")
-        col1, col2 = st.columns(2)
+        descripcion = st.text_area("DESCRIPCIÓN DE LA ACTIVIDAD * (Obligatorio)")
 
-        with col1:
-            supervisor_trabajo = st.text_input("SUPERVISOR DE TRABAJO *")
-        with col2:
-            dueno_area = st.text_input("DUEÑO DE ÁREA *")
+        col3, col4 = st.columns(2)
+        with col3:
+            supervisor_trabajo = st.text_input("SUPERVISOR DE TRABAJO * (Obligatorio)")
+        with col4:
+            dueno_area = st.text_input("DUEÑO DE ÁREA * (Obligatorio)")
 
         archivo = st.file_uploader(
-            "Adjuntar AST / Evidencia",
-            type=["pdf", "xlsx", "xls", "docx"]
+            "Adjuntar ATS / Evidencia (Opcional)",
+            type=["xlsx", "xls", "pdf", "docx"]
         )
 
         enviar = st.form_submit_button("GUARDAR REGISTRO")
 
+    # ========================== GUARDAR ==========================
     if enviar:
+
         if descripcion.strip() == "" or supervisor_trabajo.strip() == "" or dueno_area.strip() == "":
-            st.error("⚠️ Complete todos los campos obligatorios.")
+            st.error("⚠️ No puedes registrar. Hay campos obligatorios vacíos.")
         else:
             fecha_registro = datetime.now().strftime("%Y-%m-%d %H:%M:%S")
 
-            # ---------------- SUBIR AST A DRIVE ----------------
+            # ========================== SUBIR AST A DRIVE ==========================
             ast_link = "No adjuntado"
 
             if archivo is not None:
@@ -107,6 +105,7 @@ with menu[0]:
                     "title": archivo.name,
                     "parents": [{"id": AST_FOLDER_ID}]
                 })
+
                 gfile.SetContentBinary(archivo.getvalue())
                 gfile.Upload()
 
@@ -117,7 +116,7 @@ with menu[0]:
 
                 ast_link = f"https://drive.google.com/file/d/{gfile['id']}/view"
 
-            # ---------------- GUARDAR EN GOOGLE SHEETS ----------------
+            # ========================== GUARDAR EN GOOGLE SHEETS ==========================
             sheet.append_row([
                 fecha_registro,
                 area,
@@ -128,8 +127,8 @@ with menu[0]:
                 ast_link
             ])
 
-            st.success("Registro guardado correctamente.")
-            st.write("🔗 Link AST:", ast_link)
+            st.success("Registro almacenado correctamente.")
+            st.write("LINK AST:", ast_link)
 
 
 # =============================================================================
@@ -142,52 +141,21 @@ with menu[1]:
     data = sheet.get_all_records()
 
     if len(data) == 0:
-        st.info("Aún no hay registros.")
+        st.info("Aún no hay registros para mostrar KPIs.")
     else:
         df = pd.DataFrame(data)
         df.columns = df.columns.str.strip()
+        df["Fecha"] = pd.to_datetime(df["Fecha de Registro"]).dt.date
 
-        df["Fecha"] = pd.to_datetime(
-            df["Fecha de Registro"],
-            errors="coerce"
-        ).dt.date
-
-        # KPIs
         colk1, colk2, colk3 = st.columns(3)
-        colk1.metric("Total Registros", len(df))
-        colk2.metric("Áreas", df["Área"].nunique())
-        colk3.metric("Supervisores", df["Supervisor Área"].nunique())
+        colk1.metric("Total de Registros", len(df))
+        colk2.metric("Áreas Reportando", df["Área"].nunique())
+        colk3.metric("Supervisores Participando", df["Supervisor Área"].nunique())
 
         st.markdown("---")
 
-        # Tendencia
         trend = df.groupby("Fecha").size().reset_index(name="Cantidad")
-        st.plotly_chart(
-            px.line(trend, x="Fecha", y="Cantidad", markers=True),
-            use_container_width=True
-        )
-
-        st.markdown("---")
-
-        # Por área
-        area_count = df["Área"].value_counts().reset_index()
-        area_count.columns = ["Área", "Cantidad"]
-        st.plotly_chart(
-            px.bar(area_count, x="Área", y="Cantidad", text="Cantidad"),
-            use_container_width=True
-        )
-
-        st.markdown("---")
-
-        # Ranking supervisores
-        sup_count = df["Supervisor Área"].value_counts().reset_index()
-        sup_count.columns = ["Supervisor", "Cantidad"]
-        st.plotly_chart(
-            px.bar(sup_count, x="Supervisor", y="Cantidad", text="Cantidad"),
-            use_container_width=True
-        )
-
-
-
+        st.plotly_chart(px.line(trend, x="Fecha", y="Cantidad", markers=True),
+                        use_container_width=True)
 
 
