@@ -133,15 +133,37 @@ with menu[0]:
             st.session_state.archivos.append(archivo)
 
             # ========================== GUARDAR EN GOOGLE SHEETS ==========================
-            sheet.append_row([
-                fecha_registro,
-                st.session_state.area,
-                supervisor,
-                descripcion,
-                supervisor_trabajo,
-                dueno_area,
-                archivo.name if archivo else "No adjuntado"
-            ])
+           # ========================== SUBIR AST A DRIVE ==========================
+ast_link = "No adjuntado"
+
+if archivo is not None:
+    gfile = drive.CreateFile({
+        "title": archivo.name,
+        "parents": [{"id": AST_FOLDER_ID}]
+    })
+
+    gfile.SetContentBinary(archivo.getvalue())
+    gfile.Upload()
+
+    # Permiso lectura
+    gfile.InsertPermission({
+        "type": "anyone",
+        "role": "reader"
+    })
+
+    ast_link = f"https://drive.google.com/file/d/{gfile['id']}/view"
+
+# ========================== GUARDAR EN GOOGLE SHEETS ==========================
+sheet.append_row([
+    fecha_registro,
+    st.session_state.area,
+    supervisor,
+    descripcion,
+    supervisor_trabajo,
+    dueno_area,
+    ast_link
+])
+
 
             st.success("Registro almacenado correctamente.")
             st.write("### Resumen del Registro")
@@ -259,6 +281,7 @@ with menu[1]:
             st.warning(f"Cumplimiento promedio: {avg_cumplimiento}%")
         else:
             st.error(f"Cumplimiento promedio: {avg_cumplimiento}%")
+
 
 
 
