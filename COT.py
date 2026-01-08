@@ -154,11 +154,14 @@ with menu[1]:
 
     st.subheader("📊 KPIs y Gráficas del COT")
 
-    if len(st.session_state.registros) == 0:
-        st.info("Aún no hay registros para mostrar KPIs.")
-    else:
-        df = st.session_state.registros.copy()
-        df["Fecha"] = pd.to_datetime(df["Fecha Registro"]).dt.date
+data = sheet.get_all_records()
+
+if len(data) == 0:
+    st.info("Aún no hay registros para mostrar KPIs.")
+else:
+    df = pd.DataFrame(data)
+    df["Fecha"] = pd.to_datetime(df["Fecha Registro"]).dt.date
+
 
         colk1, colk2, colk3 = st.columns(3)
         colk1.metric("Total de Registros", len(df))
@@ -227,3 +230,4 @@ with menu[1]:
             st.warning(f"Cumplimiento promedio: {avg_cumplimiento}%")
         else:
             st.error(f"Cumplimiento promedio: {avg_cumplimiento}%")
+
