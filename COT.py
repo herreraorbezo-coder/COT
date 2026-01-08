@@ -39,8 +39,7 @@ areas = {
     "MANTENIMIENTO": ["NILTON HINOSTROZA", "GUSTAVO VASQUEZ"],
     "E&IC": ["OMAR CAYLLAHUA", "MAURO BENAVENTE", "DAWI TORRES"],
     "ADMINISTRACION": ["ENRIQUE ESPINOZA", "LUCIO ZEVALLOS"],
-    "EHS": ["JOSE BENDEZU", "JACKER RUIZ", "MARCO ALVARADO"],
-    "GIA": ["GARI NAVARRO", "JULIAN RODRIGUEZ", "ADDERLY DE LA CRUZ"]
+    "EHS": ["JOSE BENDEZU", "JACKER RUIZ", "MARCO ALVARADO"]
 }
 
 menu = st.tabs(["📋 Registrar Actividad", "📊 Dashboard / KPIs"])
@@ -134,7 +133,7 @@ with menu[1]:
         st.info("Aún no hay registros para mostrar KPIs.")
     else:
         df = pd.DataFrame(data)
-        df["Fecha"] = pd.to_datetime(df["Fecha Registro"]).dt.date
+        df["FechaHora"] = pd.to_datetime(df["Fecha Registro"])
 
         colk1, colk2, colk3 = st.columns(3)
         colk1.metric("Total de Registros", len(df))
@@ -143,9 +142,14 @@ with menu[1]:
 
         st.markdown("---")
 
-        trend = df.groupby("Fecha").size().reset_index(name="Cantidad")
         st.plotly_chart(
-            px.line(trend, x="Fecha", y="Cantidad", markers=True),
+            px.scatter(
+                df,
+                x="FechaHora",
+                y=[1] * len(df),
+                color="Área",
+                title="Registros por Hora y Área"
+            ).update_yaxes(showticklabels=False, title=None),
             use_container_width=True
         )
 
@@ -183,7 +187,10 @@ with menu[1]:
 
         st.markdown("---")
 
-        heat = df.groupby(["Fecha", "Área"]).size().reset_index(name="Cantidad")
+        heat = df.copy()
+        heat["Fecha"] = heat["FechaHora"].dt.date
+        heat = heat.groupby(["Fecha", "Área"]).size().reset_index(name="Cantidad")
+
         st.plotly_chart(
             px.density_heatmap(
                 heat,
@@ -215,8 +222,10 @@ with menu[1]:
 
         meta = st.slider("Meta mínima diaria de registros:", 1, 50, 5)
 
+        daily = df.groupby(df["FechaHora"].dt.date).size().reset_index(name="Cantidad")
+
         cumplimiento = []
-        for _, total in trend.values:
+        for _, total in daily.values:
             cumplimiento.append(min(100, int((total / meta) * 100)))
 
         avg_cumplimiento = int(sum(cumplimiento) / len(cumplimiento))
