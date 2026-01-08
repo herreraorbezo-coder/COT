@@ -144,7 +144,8 @@ with menu[0]:
                 uploaded = drive_service.files().create(
                     body=file_metadata,
                     media_body=media,
-                    fields="id"
+                    fields="id",
+                    supportsAllDrives=True
                 ).execute()
 
                 drive_service.permissions().create(
@@ -152,7 +153,8 @@ with menu[0]:
                     body={
                         "type": "anyone",
                         "role": "reader"
-                    }
+                    },
+                    supportsAllDrives=True
                 ).execute()
 
                 ast_link = f"https://drive.google.com/file/d/{uploaded['id']}/view"
