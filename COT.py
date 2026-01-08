@@ -8,7 +8,8 @@ from google.oauth2.service_account import Credentials
 
 # ========================== GOOGLE AUTH ==========================
 scope = [
-    "https://www.googleapis.com/auth/spreadsheets"
+    "https://www.googleapis.com/auth/spreadsheets",
+    "https://www.googleapis.com/auth/drive"
 ]
 
 creds = Credentials.from_service_account_info(
@@ -17,7 +18,10 @@ creds = Credentials.from_service_account_info(
 )
 
 cliente = gspread.authorize(creds)
-sheet = cliente.open("COT_AGUAYTIA").sheet1
+
+# ⚠️ USA SIEMPRE EL ID (NO EL NOMBRE)
+SHEET_ID = "PEGA_EL_ID_AQUI"
+sheet = cliente.open_by_key(SHEET_ID).sheet1
 
 
 # ========================== CONFIG STREAMLIT ==========================
@@ -84,40 +88,26 @@ with menu[0]:
         with col4:
             dueno_area = st.text_input("DUEÑO DE ÁREA * (Obligatorio)")
 
-        psm = st.radio(
-            "¿Actividad asociada a PSM?",
-            ["NO", "SÍ"],
-            horizontal=True
-        )
+        psm = st.radio("¿Actividad asociada a PSM?", ["NO", "SÍ"], horizontal=True)
 
         enviar = st.form_submit_button("GUARDAR REGISTRO")
 
     if enviar:
         if descripcion.strip() == "" or supervisor_trabajo.strip() == "" or dueno_area.strip() == "":
-            st.error("⚠️ No puedes registrar. Hay campos obligatorios vacíos.")
+            st.error("⚠️ Campos obligatorios vacíos.")
         else:
-            fecha_registro = datetime.now().strftime("%Y-%m-%d %H:%M:%S")
+            nuevo_registro = [
+                datetime.now().strftime("%Y-%m-%d %H:%M:%S"),
+                st.session_state.area,
+                supervisor,
+                descripcion,
+                supervisor_trabajo,
+                dueno_area,
+                psm
+            ]
 
-            nuevo_registro = {
-                "Fecha Registro": fecha_registro,
-                "Área": st.session_state.area,
-                "Supervisor Área": supervisor,
-                "Descripción Actividad": descripcion,
-                "Supervisor de Trabajo": supervisor_trabajo,
-                "Dueño de Área": dueno_area,
-                "PSM": psm
-            }
-
-            st.session_state.registros = pd.concat(
-                [st.session_state.registros, pd.DataFrame([nuevo_registro])],
-                ignore_index=True
-            )
-
-            sheet.append_row(list(nuevo_registro.values()))
-
+            sheet.append_row(nuevo_registro)
             st.success("Registro almacenado correctamente.")
-            st.write("### Resumen del Registro")
-            st.write(nuevo_registro)
 
     st.subheader("HISTÓRICO DE REGISTROS EN SESIÓN")
     st.dataframe(st.session_state.registros, use_container_width=True)
@@ -132,101 +122,30 @@ with menu[1]:
 
     data = sheet.get_all_records()
 
-    if len(data) == 0:
-        st.info("Aún no hay registros para mostrar KPIs.")
-    else:
+    if data:
         df = pd.DataFrame(data)
         df["Fecha"] = pd.to_datetime(df["Fecha Registro"]).dt.date
 
-        # ================= KPIs PRINCIPALES =================
         colk1, colk2, colk3 = st.columns(3)
-        colk1.metric("Total de Registros", len(df))
+        colk1.metric("Total Registros", len(df))
         colk2.metric("Áreas Reportando", df["Área"].nunique())
         colk3.metric("Supervisores Participando", df["Supervisor Área"].nunique())
 
-        st.markdown("---")
-
-        # ================= TENDENCIA DIARIA =================
         trend = df.groupby("Fecha").size().reset_index(name="Cantidad")
-        st.plotly_chart(
-            px.line(trend, x="Fecha", y="Cantidad", markers=True),
-            use_container_width=True
-        )
+        st.plotly_chart(px.line(trend, x="Fecha", y="Cantidad", markers=True), True)
 
-        st.markdown("---")
-
-        # ================= REGISTROS POR ÁREA =================
         area_count = df["Área"].value_counts().reset_index()
         area_count.columns = ["Área", "Cantidad"]
+        st.plotly_chart(px.bar(area_count, x="Área", y="Cantidad"), True)
 
-        st.plotly_chart(
-            px.bar(area_count, x="Área", y="Cantidad", text="Cantidad", color="Cantidad"),
-            use_container_width=True
-        )
-
-        st.markdown("---")
-
-        # ================= REGISTROS POR SUPERVISOR =================
         sup_count = df["Supervisor Área"].value_counts().reset_index()
         sup_count.columns = ["Supervisor", "Cantidad"]
+        st.plotly_chart(px.bar(sup_count, x="Supervisor", y="Cantidad"), True)
 
-        st.plotly_chart(
-            px.bar(sup_count, x="Supervisor", y="Cantidad", text="Cantidad", color="Cantidad"),
-            use_container_width=True
-        )
-
-        st.markdown("---")
-
-        # ================= MAPA DE CALOR FECHA vs ÁREA =================
         heat = df.groupby(["Fecha", "Área"]).size().reset_index(name="Cantidad")
-        st.plotly_chart(
-            px.density_heatmap(
-                heat,
-                x="Fecha",
-                y="Área",
-                z="Cantidad",
-                color_continuous_scale="Blues"
-            ),
-            use_container_width=True
-        )
-
-        st.markdown("---")
-
-        # ================= CUMPLIMIENTO DE META =================
-        meta = st.slider("Meta mínima diaria de registros:", 1, 50, 5)
-
-        cumplimiento = []
-        for _, total in trend.values:
-            cumplimiento.append(min(100, int((total / meta) * 100)))
-
-        avg_cumplimiento = int(sum(cumplimiento) / len(cumplimiento))
-
-        if avg_cumplimiento >= 90:
-            st.success(f"Cumplimiento promedio: {avg_cumplimiento}%")
-        elif avg_cumplimiento >= 60:
-            st.warning(f"Cumplimiento promedio: {avg_cumplimiento}%")
-        else:
-            st.error(f"Cumplimiento promedio: {avg_cumplimiento}%")
-
-        st.markdown("---")
-
-        # ================= KPIs Y GRÁFICA PSM =================
-        st.subheader("🛡️ Análisis PSM")
-
-        colp1, colp2 = st.columns(2)
-        colp1.metric("Actividades PSM (SÍ)", (df["PSM"] == "SÍ").sum())
-        colp2.metric("Actividades NO PSM", (df["PSM"] == "NO").sum())
+        st.plotly_chart(px.density_heatmap(heat, x="Fecha", y="Área", z="Cantidad"), True)
 
         psm_count = df["PSM"].value_counts().reset_index()
         psm_count.columns = ["PSM", "Cantidad"]
+        st.plotly_chart(px.pie(psm_count, names="PSM", values="Cantidad", hole=0.4), True)
 
-        st.plotly_chart(
-            px.pie(
-                psm_count,
-                names="PSM",
-                values="Cantidad",
-                hole=0.4,
-                title="Distribución de Actividades PSM"
-            ),
-            use_container_width=True
-        )
