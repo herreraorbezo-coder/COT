@@ -4,7 +4,11 @@ from datetime import datetime
 import plotly.express as px
 import gspread
 from google.oauth2.service_account import Credentials
-
+from pydrive2.auth import GoogleAuth
+from pydrive2.drive import GoogleDrive
+gauth = GoogleAuth()
+gauth.credentials = creds
+drive = GoogleDrive(gauth)
 AST_FOLDER_ID = "1PhQg9p6NL4C6WYVSPIKB4P_vmLZbUYHn"
 
 # ========================== GOOGLE SHEETS AUTH ==========================
@@ -249,6 +253,7 @@ with menu[1]:
             st.warning(f"Cumplimiento promedio: {avg_cumplimiento}%")
         else:
             st.error(f"Cumplimiento promedio: {avg_cumplimiento}%")
+
 
 
 
