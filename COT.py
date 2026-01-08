@@ -4,15 +4,11 @@ from datetime import datetime
 import plotly.express as px
 import gspread
 from google.oauth2.service_account import Credentials
-from googleapiclient.discovery import build
-from googleapiclient.http import MediaIoBaseUpload
-import io
 
 
 # ========================== GOOGLE AUTH ==========================
 scope = [
     "https://www.googleapis.com/auth/spreadsheets",
-    "https://www.googleapis.com/auth/drive"
 ]
 
 creds = Credentials.from_service_account_info(
@@ -23,11 +19,6 @@ creds = Credentials.from_service_account_info(
 # Google Sheets
 cliente = gspread.authorize(creds)
 sheet = cliente.open("COT_AGUAYTIA").sheet1
-
-# Google Drive
-drive_service = build("drive", "v3", credentials=creds)
-
-AST_FOLDER_ID = "1PhQg9p6NL4C6WYVSPIKB4P_vmLZbUYHn"
 
 
 # ========================== CONFIG STREAMLIT ==========================
@@ -52,9 +43,6 @@ if "registros" not in st.session_state:
         "Dueño de Área",
         "Archivo ATS"
     ])
-
-if "archivos" not in st.session_state:
-    st.session_state.archivos = []
 
 
 # ========================== AREAS ==========================
@@ -97,11 +85,6 @@ with menu[0]:
         with col4:
             dueno_area = st.text_input("DUEÑO DE ÁREA * (Obligatorio)")
 
-        archivo = st.file_uploader(
-            "Adjuntar ATS / Evidencia (Opcional)",
-            type=["xlsx", "xls", "pdf", "docx"]
-        )
-
         enviar = st.form_submit_button("GUARDAR REGISTRO")
 
     if enviar:
@@ -117,43 +100,13 @@ with menu[0]:
                 "Descripción Actividad": descripcion,
                 "Supervisor de Trabajo": supervisor_trabajo,
                 "Dueño de Área": dueno_area,
-                "Archivo ATS": archivo.name if archivo else "No adjuntado"
+                "Archivo ATS": "No aplica"
             }
 
             st.session_state.registros = pd.concat(
                 [st.session_state.registros, pd.DataFrame([nuevo_registro])],
                 ignore_index=True
             )
-
-            st.session_state.archivos.append(archivo)
-
-            ast_link = "No adjuntado"
-
-            if archivo is not None:
-                media = MediaIoBaseUpload(
-                    io.BytesIO(archivo.getbuffer()),
-                    mimetype=archivo.type,
-                    resumable=False
-                )
-
-                file_metadata = {
-                    "name": archivo.name,
-                    "parents": [AST_FOLDER_ID]
-                }
-
-                uploaded = drive_service.files().create(
-                    body=file_metadata,
-                    media_body=media,
-                    fields="id",
-                ).execute()
-
-                uploaded = drive_service.permissions().create(
-                    body=file_metadata,
-                    media_body=media,
-                    fields="id" 
-                ).execute()
-
-                ast_link = f"https://drive.google.com/file/d/{uploaded['id']}/view"
 
             sheet.append_row([
                 fecha_registro,
@@ -162,7 +115,7 @@ with menu[0]:
                 descripcion,
                 supervisor_trabajo,
                 dueno_area,
-                ast_link
+                "No aplica"
             ])
 
             st.success("Registro almacenado correctamente.")
@@ -198,6 +151,25 @@ with menu[1]:
         trend = df.groupby("Fecha").size().reset_index(name="Cantidad")
         st.plotly_chart(
             px.line(trend, x="Fecha", y="Cantidad", markers=True),
+            use_container_width=True
+        )
+
+        st.markdown("---")
+
+        # ========================== KPI PASTEL % ==========================
+        st.subheader("📌 Distribución de Registros por Área (%)")
+
+        pie_df = df["Área"].value_counts().reset_index()
+        pie_df.columns = ["Área", "Cantidad"]
+        pie_df["Porcentaje"] = round((pie_df["Cantidad"] / pie_df["Cantidad"].sum()) * 100, 2)
+
+        st.plotly_chart(
+            px.pie(
+                pie_df,
+                names="Área",
+                values="Cantidad",
+                hole=0.4
+            ),
             use_container_width=True
         )
 
@@ -251,6 +223,8 @@ with menu[1]:
             st.warning(f"Cumplimiento promedio: {avg_cumplimiento}%")
         else:
             st.error(f"Cumplimiento promedio: {avg_cumplimiento}%")
+
+
 
 
 
