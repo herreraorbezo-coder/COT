@@ -147,12 +147,10 @@ with menu[0]:
                     fields="id",
                 ).execute()
 
-                drive_service.permissions().create(
-                    fileId=uploaded["id"],
-                    body={
-                        "type": "anyone",
-                        "role": "reader"
-                    },
+                uploaded = drive_service.permissions().create(
+                    body=file_metadata,
+                    media_body=media,
+                    fields="id" 
                 ).execute()
 
                 ast_link = f"https://drive.google.com/file/d/{uploaded['id']}/view"
@@ -253,4 +251,5 @@ with menu[1]:
             st.warning(f"Cumplimiento promedio: {avg_cumplimiento}%")
         else:
             st.error(f"Cumplimiento promedio: {avg_cumplimiento}%")
+
 
