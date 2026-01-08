@@ -44,7 +44,15 @@ st.write("Plataforma para registro de actividades destinadas al COT")
 
 # ========================== BASE TEMPORAL ==========================
 if "registros" not in st.session_state:
-    st.session_state.registros = pd.DataFrame()
+    st.session_state.registros = pd.DataFrame(columns=[
+        "Fecha Registro",
+        "Área",
+        "Supervisor Área",
+        "Descripción Actividad",
+        "Supervisor de Trabajo",
+        "Dueño de Área",
+        "Archivo ATS"
+    ])
 
 if "archivos" not in st.session_state:
     st.session_state.archivos = []
@@ -62,9 +70,9 @@ areas = {
 menu = st.tabs(["📋 Registrar Actividad", "📊 Dashboard / KPIs"])
 
 
-# =============================================================================
+# ====================================================================================
 #                               TAB REGISTRO
-# =============================================================================
+# ====================================================================================
 with menu[0]:
 
     st.subheader("DATOS GENERALES")
@@ -73,6 +81,8 @@ with menu[0]:
     supervisor = st.selectbox("SUPERVISOR", areas[area])
 
     with st.form("formulario_cot", clear_on_submit=True):
+
+        st.subheader("DATOS DE LA ACTIVIDAD")
 
         descripcion = st.text_area("DESCRIPCIÓN DE LA ACTIVIDAD * (Obligatorio)")
 
@@ -89,7 +99,6 @@ with menu[0]:
 
         enviar = st.form_submit_button("GUARDAR REGISTRO")
 
-    # ========================== GUARDAR ==========================
     if enviar:
 
         if descripcion.strip() == "" or supervisor_trabajo.strip() == "" or dueno_area.strip() == "":
@@ -131,9 +140,9 @@ with menu[0]:
             st.write("LINK AST:", ast_link)
 
 
-# =============================================================================
+# ====================================================================================
 #                               TAB DASHBOARD
-# =============================================================================
+# ====================================================================================
 with menu[1]:
 
     st.subheader("📊 KPIs y Gráficas del COT")
@@ -145,8 +154,13 @@ with menu[1]:
     else:
         df = pd.DataFrame(data)
         df.columns = df.columns.str.strip()
-        df["Fecha"] = pd.to_datetime(df["Fecha de Registro"]).dt.date
 
+        df["Fecha"] = pd.to_datetime(
+            df["Fecha de Registro"],
+            errors="coerce"
+        ).dt.date
+
+        # ------------------- KPI PRINCIPALES -------------------
         colk1, colk2, colk3 = st.columns(3)
         colk1.metric("Total de Registros", len(df))
         colk2.metric("Áreas Reportando", df["Área"].nunique())
@@ -154,8 +168,69 @@ with menu[1]:
 
         st.markdown("---")
 
+        # ------------------- Tendencia -------------------
+        st.subheader("📈 Tendencia de registros en el tiempo")
         trend = df.groupby("Fecha").size().reset_index(name="Cantidad")
-        st.plotly_chart(px.line(trend, x="Fecha", y="Cantidad", markers=True),
-                        use_container_width=True)
+        st.plotly_chart(
+            px.line(trend, x="Fecha", y="Cantidad", markers=True),
+            use_container_width=True
+        )
 
+        st.markdown("---")
 
+        # ------------------- Participación por Área -------------------
+        st.subheader("🏆 Participación por Área")
+        area_count = df["Área"].value_counts().reset_index()
+        area_count.columns = ["Área", "Cantidad"]
+
+        st.plotly_chart(
+            px.bar(area_count, x="Área", y="Cantidad", text="Cantidad", color="Cantidad"),
+            use_container_width=True
+        )
+
+        st.markdown("---")
+
+        # ------------------- Ranking Supervisores -------------------
+        st.subheader("👤 Ranking de Supervisores")
+        sup_count = df["Supervisor Área"].value_counts().reset_index()
+        sup_count.columns = ["Supervisor", "Cantidad"]
+
+        st.plotly_chart(
+            px.bar(sup_count, x="Supervisor", y="Cantidad", text="Cantidad", color="Cantidad"),
+            use_container_width=True
+        )
+
+        st.markdown("---")
+
+        # ------------------- Heatmap -------------------
+        st.subheader("🔥 Mapa de Participación por Día y Área")
+        heat = df.groupby(["Fecha", "Área"]).size().reset_index(name="Cantidad")
+        st.plotly_chart(
+            px.density_heatmap(
+                heat,
+                x="Fecha",
+                y="Área",
+                z="Cantidad",
+                color_continuous_scale="Blues"
+            ),
+            use_container_width=True
+        )
+
+        st.markdown("---")
+
+        # ------------------- Cumplimiento -------------------
+        st.subheader("🎯 % Cumplimiento de Meta")
+        meta = st.slider("Meta mínima diaria de registros:", 1, 50, 5)
+
+        cumplimiento = []
+        for _, total in trend.values:
+            cumplimiento.append(min(100, int((total / meta) * 100)))
+
+        avg_cumplimiento = int(sum(cumplimiento) / len(cumplimiento))
+
+        if avg_cumplimiento >= 90:
+            st.success(f"Cumplimiento promedio: {avg_cumplimiento}%")
+        elif avg_cumplimiento >= 60:
+            st.warning(f"Cumplimiento promedio: {avg_cumplimiento}%")
+        else:
+            st.error(f"Cumplimiento promedio: {avg_cumplimiento}%")
