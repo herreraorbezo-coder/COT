@@ -39,7 +39,8 @@ areas = {
     "MANTENIMIENTO": ["NILTON HINOSTROZA", "GUSTAVO VASQUEZ"],
     "E&IC": ["OMAR CAYLLAHUA", "MAURO BENAVENTE", "DAWI TORRES"],
     "ADMINISTRACION": ["ENRIQUE ESPINOZA", "LUCIO ZEVALLOS"],
-    "EHS": ["JOSE BENDEZU", "JACKER RUIZ", "MARCO ALVARADO"]
+    "EHS": ["JOSE BENDEZU", "JACKER RUIZ", "MARCO ALVARADO"],
+    "GIA": ["GARY NAVARRO", "JULIAN RODRIGUEZ", "ADDERLY DE LA CRUZ"]
 }
 
 menu = st.tabs(["📋 Registrar Actividad", "📊 Dashboard / KPIs"])
@@ -236,4 +237,5 @@ with menu[1]:
             st.warning(f"Cumplimiento promedio: {avg_cumplimiento}%")
         else:
             st.error(f"Cumplimiento promedio: {avg_cumplimiento}%")
+
 
