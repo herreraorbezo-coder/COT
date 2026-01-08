@@ -4,11 +4,15 @@ from datetime import datetime
 import plotly.express as px
 import gspread
 from google.oauth2.service_account import Credentials
+from googleapiclient.discovery import build
+from googleapiclient.http import MediaIoBaseUpload
+import io
 
 
 # ========================== GOOGLE AUTH ==========================
 scope = [
-    "https://www.googleapis.com/auth/spreadsheets"
+    "https://www.googleapis.com/auth/spreadsheets",
+    "https://www.googleapis.com/auth/drive"
 ]
 
 creds = Credentials.from_service_account_info(
@@ -16,9 +20,14 @@ creds = Credentials.from_service_account_info(
     scopes=scope
 )
 
-# Google Sheets (NO TOCAMOS ESTO)
+# Google Sheets
 cliente = gspread.authorize(creds)
 sheet = cliente.open("COT_AGUAYTIA").sheet1
+
+# Google Drive
+drive_service = build("drive", "v3", credentials=creds)
+
+AST_FOLDER_ID = "1PhQg9p6NL4C6WYVSPIKB4P_vmLZbUYHn"
 
 
 # ========================== CONFIG STREAMLIT ==========================
@@ -32,7 +41,7 @@ st.title("SISTEMA COT - AGUAYTÍA ENERGY S.R.L.")
 st.write("Plataforma para registro de actividades destinadas al COT")
 
 
-# ========================== BASE TEMPORAL ==========================
+# ========================== BASE TEMPORAL PARA DASHBOARD ==========================
 if "registros" not in st.session_state:
     st.session_state.registros = pd.DataFrame(columns=[
         "Fecha Registro",
@@ -41,8 +50,11 @@ if "registros" not in st.session_state:
         "Descripción Actividad",
         "Supervisor de Trabajo",
         "Dueño de Área",
-        "PSM"
+        "Archivo ATS"
     ])
+
+if "archivos" not in st.session_state:
+    st.session_state.archivos = []
 
 
 # ========================== AREAS ==========================
@@ -85,10 +97,9 @@ with menu[0]:
         with col4:
             dueno_area = st.text_input("DUEÑO DE ÁREA * (Obligatorio)")
 
-        psm = st.radio(
-            "¿Actividad asociada a PSM?",
-            ["NO", "SÍ"],
-            horizontal=True
+        archivo = st.file_uploader(
+            "Adjuntar ATS / Evidencia (Opcional)",
+            type=["xlsx", "xls", "pdf", "docx"]
         )
 
         enviar = st.form_submit_button("GUARDAR REGISTRO")
@@ -99,32 +110,68 @@ with menu[0]:
         else:
             fecha_registro = datetime.now().strftime("%Y-%m-%d %H:%M:%S")
 
-            nuevo_registro = [
+            nuevo_registro = {
+                "Fecha Registro": fecha_registro,
+                "Área": st.session_state.area,
+                "Supervisor Área": supervisor,
+                "Descripción Actividad": descripcion,
+                "Supervisor de Trabajo": supervisor_trabajo,
+                "Dueño de Área": dueno_area,
+                "Archivo ATS": archivo.name if archivo else "No adjuntado"
+            }
+
+            st.session_state.registros = pd.concat(
+                [st.session_state.registros, pd.DataFrame([nuevo_registro])],
+                ignore_index=True
+            )
+
+            st.session_state.archivos.append(archivo)
+
+            ast_link = "No adjuntado"
+
+            if archivo is not None:
+                media = MediaIoBaseUpload(
+                    io.BytesIO(archivo.getbuffer()),
+                    mimetype=archivo.type,
+                    resumable=False
+                )
+
+                file_metadata = {
+                    "name": archivo.name,
+                    "parents": [AST_FOLDER_ID]
+                }
+
+                uploaded = drive_service.files().create(
+                    body=file_metadata,
+                    media_body=media,
+                    fields="id",
+                    supportsAllDrives=False
+                ).execute()
+
+                drive_service.permissions().create(
+                    fileId=uploaded["id"],
+                    body={
+                        "type": "anyone",
+                        "role": "reader"
+                    },
+                    supportsAllDrives=False
+                ).execute()
+
+                ast_link = f"https://drive.google.com/file/d/{uploaded['id']}/view"
+
+            sheet.append_row([
                 fecha_registro,
                 st.session_state.area,
                 supervisor,
                 descripcion,
                 supervisor_trabajo,
                 dueno_area,
-                psm
-            ]
-
-            sheet.append_row(nuevo_registro)
-
-            st.session_state.registros = pd.concat(
-                [st.session_state.registros, pd.DataFrame([{
-                    "Fecha Registro": fecha_registro,
-                    "Área": st.session_state.area,
-                    "Supervisor Área": supervisor,
-                    "Descripción Actividad": descripcion,
-                    "Supervisor de Trabajo": supervisor_trabajo,
-                    "Dueño de Área": dueno_area,
-                    "PSM": psm
-                }])],
-                ignore_index=True
-            )
+                ast_link
+            ])
 
             st.success("Registro almacenado correctamente.")
+            st.write("### Resumen del Registro")
+            st.write(nuevo_registro)
 
     st.subheader("HISTÓRICO DE REGISTROS EN SESIÓN")
     st.dataframe(st.session_state.registros, use_container_width=True)
@@ -145,7 +192,6 @@ with menu[1]:
         df = pd.DataFrame(data)
         df["Fecha"] = pd.to_datetime(df["Fecha Registro"]).dt.date
 
-        # KPIs PRINCIPALES
         colk1, colk2, colk3 = st.columns(3)
         colk1.metric("Total de Registros", len(df))
         colk2.metric("Áreas Reportando", df["Área"].nunique())
@@ -153,7 +199,6 @@ with menu[1]:
 
         st.markdown("---")
 
-        # TENDENCIA
         trend = df.groupby("Fecha").size().reset_index(name="Cantidad")
         st.plotly_chart(
             px.line(trend, x="Fecha", y="Cantidad", markers=True),
@@ -162,9 +207,9 @@ with menu[1]:
 
         st.markdown("---")
 
-        # POR ÁREA
         area_count = df["Área"].value_counts().reset_index()
         area_count.columns = ["Área", "Cantidad"]
+
         st.plotly_chart(
             px.bar(area_count, x="Área", y="Cantidad", text="Cantidad", color="Cantidad"),
             use_container_width=True
@@ -172,9 +217,9 @@ with menu[1]:
 
         st.markdown("---")
 
-        # POR SUPERVISOR
         sup_count = df["Supervisor Área"].value_counts().reset_index()
         sup_count.columns = ["Supervisor", "Cantidad"]
+
         st.plotly_chart(
             px.bar(sup_count, x="Supervisor", y="Cantidad", text="Cantidad", color="Cantidad"),
             use_container_width=True
@@ -182,7 +227,6 @@ with menu[1]:
 
         st.markdown("---")
 
-        # HEATMAP
         heat = df.groupby(["Fecha", "Área"]).size().reset_index(name="Cantidad")
         st.plotly_chart(
             px.density_heatmap(
@@ -197,7 +241,6 @@ with menu[1]:
 
         st.markdown("---")
 
-        # META
         meta = st.slider("Meta mínima diaria de registros:", 1, 50, 5)
 
         cumplimiento = []
@@ -212,22 +255,3 @@ with menu[1]:
             st.warning(f"Cumplimiento promedio: {avg_cumplimiento}%")
         else:
             st.error(f"Cumplimiento promedio: {avg_cumplimiento}%")
-
-        st.markdown("---")
-
-        # ================= PSM =================
-        st.subheader("🛡️ Análisis PSM")
-
-        colp1, colp2 = st.columns(2)
-        colp1.metric("PSM (SÍ)", (df["PSM"] == "SÍ").sum())
-        colp2.metric("PSM (NO)", (df["PSM"] == "NO").sum())
-
-        psm_count = df["PSM"].value_counts().reset_index()
-        psm_count.columns = ["PSM", "Cantidad"]
-
-        st.plotly_chart(
-            px.pie(psm_count, names="PSM", values="Cantidad", hole=0.4),
-            use_container_width=True
-        )
-
-
