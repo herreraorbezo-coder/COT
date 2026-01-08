@@ -10,8 +10,11 @@ scope = [
     "https://www.googleapis.com/auth/drive"
 ]
 
-credenciales_dict = json.loads(st.secrets["GOOGLE_SHEETS_CREDENTIALS"])
-cred = ServiceAccountCredentials.from_json_keyfile_dict(credenciales_dict, scope)
+cred = ServiceAccountCredentials.from_json_keyfile_dict(
+    st.secrets["GOOGLE_SHEETS_CREDENTIALS"], 
+    scope
+)
+
 cliente = gspread.authorize(cred)
 
 sheet = cliente.open("COT_AGUAYTIA").sheet1   # Nombre EXACTO de tu Google Sheet
@@ -211,5 +214,6 @@ with menu[1]:
             st.warning(f"Cumplimiento promedio: {avg_cumplimiento}%")
         else:
             st.error(f"Cumplimiento promedio: {avg_cumplimiento}%")
+
 
 
