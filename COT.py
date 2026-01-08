@@ -6,6 +6,7 @@ import gspread
 from google.oauth2.service_account import Credentials
 from pydrive2.auth import GoogleAuth
 from pydrive2.drive import GoogleDrive
+import os
 
 
 # ========================== GOOGLE AUTH ==========================
@@ -91,8 +92,10 @@ with menu[0]:
         descripcion = st.text_area("DESCRIPCIÓN DE LA ACTIVIDAD * (Obligatorio)")
 
         col3, col4 = st.columns(2)
+
         with col3:
             supervisor_trabajo = st.text_input("SUPERVISOR DE TRABAJO * (Obligatorio)")
+
         with col4:
             dueno_area = st.text_input("DUEÑO DE ÁREA * (Obligatorio)")
 
@@ -131,15 +134,17 @@ with menu[0]:
             ast_link = "No adjuntado"
 
             if archivo is not None:
+                temp_path = archivo.name
+
+                with open(temp_path, "wb") as f:
+                    f.write(archivo.getbuffer())
+
                 gfile = drive.CreateFile({
                     "title": archivo.name,
                     "parents": [{"id": AST_FOLDER_ID}]
                 })
 
-                with open(archivo.name, "wb") as f:
-                    f.write(archivo.getbuffer())
-
-                gfile.SetContentFile(archivo.name)
+                gfile.SetContentFile(temp_path)
                 gfile.Upload()
 
                 gfile.InsertPermission({
@@ -148,6 +153,8 @@ with menu[0]:
                 })
 
                 ast_link = f"https://drive.google.com/file/d/{gfile['id']}/view"
+
+                os.remove(temp_path)
 
             # ========================== GUARDAR EN GOOGLE SHEETS ==========================
             sheet.append_row([
