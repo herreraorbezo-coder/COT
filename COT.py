@@ -148,10 +148,12 @@ with menu[0]:
                     supportsAllDrives=False
                 ).execute()
 
-                uploaded = drive_service.permissions().create(
-                    body=file_metadata,
-                    media_body=media,
-                    fields="id" 
+                drive_service.permissions().create(
+                    fileId=uploaded["id"],
+                    body={
+                        "type": "anyone",
+                        "role": "reader"
+                    },
                     supportsAllDrives=False
                 ).execute()
 
@@ -253,3 +255,4 @@ with menu[1]:
             st.warning(f"Cumplimiento promedio: {avg_cumplimiento}%")
         else:
             st.error(f"Cumplimiento promedio: {avg_cumplimiento}%")
+
