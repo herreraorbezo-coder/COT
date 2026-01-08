@@ -4,9 +4,6 @@ from datetime import datetime
 import plotly.express as px
 import gspread
 from google.oauth2.service_account import Credentials
-from googleapiclient.discovery import build
-from googleapiclient.http import MediaIoBaseUpload
-import io
 
 
 # ========================== GOOGLE AUTH ==========================
@@ -23,11 +20,6 @@ creds = Credentials.from_service_account_info(
 # Google Sheets
 cliente = gspread.authorize(creds)
 sheet = cliente.open("COT_AGUAYTIA").sheet1
-
-# Google Drive
-drive_service = build("drive", "v3", credentials=creds)
-
-AST_FOLDER_ID = "1PhQg9p6NL4C6WYVSPIKB4P_vmLZbUYHn"
 
 
 # ========================== CONFIG STREAMLIT ==========================
@@ -52,9 +44,6 @@ if "registros" not in st.session_state:
         "Dueño de Área",
         "Archivo ATS"
     ])
-
-if "archivos" not in st.session_state:
-    st.session_state.archivos = []
 
 
 # ========================== AREAS ==========================
@@ -97,11 +86,6 @@ with menu[0]:
         with col4:
             dueno_area = st.text_input("DUEÑO DE ÁREA * (Obligatorio)")
 
-        archivo = st.file_uploader(
-            "Adjuntar ATS / Evidencia (Opcional)",
-            type=["xlsx", "xls", "pdf", "docx"]
-        )
-
         enviar = st.form_submit_button("GUARDAR REGISTRO")
 
     if enviar:
@@ -110,6 +94,9 @@ with menu[0]:
         else:
             fecha_registro = datetime.now().strftime("%Y-%m-%d %H:%M:%S")
 
+            # 🔒 Archivo ATS queda fijo
+            archivo_ats = "No adjuntado"
+
             nuevo_registro = {
                 "Fecha Registro": fecha_registro,
                 "Área": st.session_state.area,
@@ -117,47 +104,13 @@ with menu[0]:
                 "Descripción Actividad": descripcion,
                 "Supervisor de Trabajo": supervisor_trabajo,
                 "Dueño de Área": dueno_area,
-                "Archivo ATS": archivo.name if archivo else "No adjuntado"
+                "Archivo ATS": archivo_ats
             }
 
             st.session_state.registros = pd.concat(
                 [st.session_state.registros, pd.DataFrame([nuevo_registro])],
                 ignore_index=True
             )
-
-            st.session_state.archivos.append(archivo)
-
-            ast_link = "No adjuntado"
-
-            if archivo is not None:
-                media = MediaIoBaseUpload(
-                    io.BytesIO(archivo.getbuffer()),
-                    mimetype=archivo.type,
-                    resumable=False
-                )
-
-                file_metadata = {
-                    "name": archivo.name,
-                    "parents": [AST_FOLDER_ID]
-                }
-
-                uploaded = drive_service.files().create(
-                    body=file_metadata,
-                    media_body=media,
-                    fields="id",
-                    supportsAllDrives=False
-                ).execute()
-
-                drive_service.permissions().create(
-                    fileId=uploaded["id"],
-                    body={
-                        "type": "anyone",
-                        "role": "reader"
-                    },
-                    supportsAllDrives=False
-                ).execute()
-
-                ast_link = f"https://drive.google.com/file/d/{uploaded['id']}/view"
 
             sheet.append_row([
                 fecha_registro,
@@ -166,12 +119,10 @@ with menu[0]:
                 descripcion,
                 supervisor_trabajo,
                 dueno_area,
-                ast_link
+                archivo_ats
             ])
 
             st.success("Registro almacenado correctamente.")
-            st.write("### Resumen del Registro")
-            st.write(nuevo_registro)
 
     st.subheader("HISTÓRICO DE REGISTROS EN SESIÓN")
     st.dataframe(st.session_state.registros, use_container_width=True)
@@ -255,3 +206,4 @@ with menu[1]:
             st.warning(f"Cumplimiento promedio: {avg_cumplimiento}%")
         else:
             st.error(f"Cumplimiento promedio: {avg_cumplimiento}%")
+
