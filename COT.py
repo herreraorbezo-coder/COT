@@ -154,7 +154,13 @@ with menu[1]:
         area_count.columns = ["Área", "Cantidad"]
 
         st.plotly_chart(
-            px.bar(area_count, x="Área", y="Cantidad", text="Cantidad", color="Cantidad"),
+            px.bar(
+                area_count,
+                x="Área",
+                y="Cantidad",
+                color="Área",
+                text="Cantidad"
+            ),
             use_container_width=True
         )
 
@@ -164,7 +170,13 @@ with menu[1]:
         sup_count.columns = ["Supervisor", "Cantidad"]
 
         st.plotly_chart(
-            px.bar(sup_count, x="Supervisor", y="Cantidad", text="Cantidad", color="Cantidad"),
+            px.bar(
+                sup_count,
+                x="Supervisor",
+                y="Cantidad",
+                color="Supervisor",
+                text="Cantidad"
+            ),
             use_container_width=True
         )
 
@@ -178,6 +190,22 @@ with menu[1]:
                 y="Área",
                 z="Cantidad",
                 color_continuous_scale="Blues"
+            ),
+            use_container_width=True
+        )
+
+        st.markdown("---")
+
+        pie_data = df["Área"].value_counts().reset_index()
+        pie_data.columns = ["Área", "Cantidad"]
+
+        st.plotly_chart(
+            px.pie(
+                pie_data,
+                names="Área",
+                values="Cantidad",
+                hole=0.4,
+                title="Distribución porcentual de registros por Área"
             ),
             use_container_width=True
         )
