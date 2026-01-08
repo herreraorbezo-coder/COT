@@ -91,10 +91,8 @@ with menu[0]:
         descripcion = st.text_area("DESCRIPCIÓN DE LA ACTIVIDAD * (Obligatorio)")
 
         col3, col4 = st.columns(2)
-
         with col3:
             supervisor_trabajo = st.text_input("SUPERVISOR DE TRABAJO * (Obligatorio)")
-
         with col4:
             dueno_area = st.text_input("DUEÑO DE ÁREA * (Obligatorio)")
 
@@ -122,7 +120,6 @@ with menu[0]:
                 "Archivo ATS": archivo.name if archivo else "No adjuntado"
             }
 
-            # Guardar en dataframe local para dashboard
             st.session_state.registros = pd.concat(
                 [st.session_state.registros, pd.DataFrame([nuevo_registro])],
                 ignore_index=True
@@ -139,10 +136,12 @@ with menu[0]:
                     "parents": [{"id": AST_FOLDER_ID}]
                 })
 
-                gfile.SetContentBinary(archivo.getvalue())
+                with open(archivo.name, "wb") as f:
+                    f.write(archivo.getbuffer())
+
+                gfile.SetContentFile(archivo.name)
                 gfile.Upload()
 
-                # Permiso lectura
                 gfile.InsertPermission({
                     "type": "anyone",
                     "role": "reader"
@@ -189,7 +188,6 @@ with menu[1]:
         df = pd.DataFrame(data)
         df["Fecha"] = pd.to_datetime(df["Fecha Registro"]).dt.date
 
-        # ------------------- KPI PRINCIPALES -------------------
         colk1, colk2, colk3 = st.columns(3)
         colk1.metric("Total de Registros", len(df))
         colk2.metric("Áreas Reportando", df["Área"].nunique())
@@ -197,7 +195,6 @@ with menu[1]:
 
         st.markdown("---")
 
-        # ------------------- Tendencia -------------------
         st.subheader("📈 Tendencia de registros en el tiempo")
         trend = df.groupby("Fecha").size().reset_index(name="Cantidad")
         st.plotly_chart(
@@ -207,17 +204,9 @@ with menu[1]:
 
         st.markdown("---")
 
-        # ------------------- Participación por Área -------------------
         st.subheader("🏆 Participación por Área")
         area_count = df["Área"].value_counts().reset_index()
         area_count.columns = ["Área", "Cantidad"]
-
-        top_area = area_count.iloc[0]
-        st.success(f"Área con mayor aporte: {top_area['Área']} ({top_area['Cantidad']} registros)")
-
-        if len(area_count) > 1:
-            bottom_area = area_count.iloc[-1]
-            st.warning(f"Área con menor aporte: {bottom_area['Área']} ({bottom_area['Cantidad']} registros)")
 
         st.plotly_chart(
             px.bar(area_count, x="Área", y="Cantidad", text="Cantidad", color="Cantidad"),
@@ -226,15 +215,9 @@ with menu[1]:
 
         st.markdown("---")
 
-        # ------------------- Ranking Supervisores -------------------
         st.subheader("👤 Ranking de Supervisores")
         sup_count = df["Supervisor Área"].value_counts().reset_index()
         sup_count.columns = ["Supervisor", "Cantidad"]
-
-        st.info(
-            f"Supervisor Top: {sup_count.iloc[0]['Supervisor']} "
-            f"con {sup_count.iloc[0]['Cantidad']} registros"
-        )
 
         st.plotly_chart(
             px.bar(sup_count, x="Supervisor", y="Cantidad", text="Cantidad", color="Cantidad"),
@@ -243,7 +226,6 @@ with menu[1]:
 
         st.markdown("---")
 
-        # ------------------- Heatmap -------------------
         st.subheader("🔥 Mapa de Participación por Día y Área")
         heat = df.groupby(["Fecha", "Área"]).size().reset_index(name="Cantidad")
         st.plotly_chart(
@@ -259,7 +241,6 @@ with menu[1]:
 
         st.markdown("---")
 
-        # ------------------- Cumplimiento -------------------
         st.subheader("🎯 % Cumplimiento de Meta")
         meta = st.slider("Meta mínima diaria de registros:", 1, 50, 5)
 
