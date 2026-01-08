@@ -1,6 +1,7 @@
 import streamlit as st
 import pandas as pd
 from datetime import datetime
+from zoneinfo import ZoneInfo
 import plotly.express as px
 import gspread
 from google.oauth2.service_account import Credentials
@@ -26,7 +27,6 @@ sheet = cliente.open("COT_AGUAYTIA").sheet1
 
 # Google Drive
 drive_service = build("drive", "v3", credentials=creds)
-
 AST_FOLDER_ID = "1PhQg9p6NL4C6WYVSPIKB4P_vmLZbUYHn"
 
 
@@ -108,7 +108,9 @@ with menu[0]:
         if descripcion.strip() == "" or supervisor_trabajo.strip() == "" or dueno_area.strip() == "":
             st.error("⚠️ No puedes registrar. Hay campos obligatorios vacíos.")
         else:
-            fecha_registro = datetime.now().strftime("%Y-%m-%d %H:%M:%S")
+            fecha_registro = datetime.now(
+                ZoneInfo("America/Lima")
+            ).strftime("%Y-%m-%d %H:%M:%S")
 
             nuevo_registro = {
                 "Fecha Registro": fecha_registro,
