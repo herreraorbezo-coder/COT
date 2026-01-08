@@ -73,7 +73,7 @@ with menu[0]:
 
     with st.form("formulario_cot", clear_on_submit=True):
 
-        supervisor = st.selectbox("SUPERVISOR", areas[st.session_state.area])
+        supervisor = st.selectbox("SUPERVISOR / OPERADOR", areas[st.session_state.area])
 
         st.subheader("DATOS DE LA ACTIVIDAD")
 
@@ -210,3 +210,4 @@ with menu[1]:
             st.warning(f"Cumplimiento promedio: {avg_cumplimiento}%")
         else:
             st.error(f"Cumplimiento promedio: {avg_cumplimiento}%")
+
