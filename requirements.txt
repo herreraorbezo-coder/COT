@@ -4,3 +4,5 @@ plotly
 gspread
 google-auth
 pydrive2
+openpyxl
+
