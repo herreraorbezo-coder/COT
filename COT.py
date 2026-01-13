@@ -43,8 +43,11 @@ areas = {
     "GIA": ["GARY NAVARRO", "JULIAN RODRIGUEZ", "ADDERLY DE LA CRUZ"]
 }
 
-menu = st.tabs(["📋 Registrar Actividad", "📊 Dashboard / KPIs"])
-
+menu = st.tabs([
+    "📋 Registrar Actividad",
+    "📊 Dashboard / KPIs",
+    "📅 Programación Semanal"
+])
 
 # ====================================================================================
 #                               TAB REGISTRO
@@ -237,5 +240,37 @@ with menu[1]:
             st.warning(f"Cumplimiento promedio: {avg_cumplimiento}%")
         else:
             st.error(f"Cumplimiento promedio: {avg_cumplimiento}%")
+# ====================================================================================
+#                               TAB PROGRAMACIÓN SEMANAL
+# ====================================================================================
+with menu[2]:
+
+    st.subheader("📅 Programación Semanal de Trabajos")
+
+    archivo = st.file_uploader(
+        "Sube el archivo Excel semanal (con 3 hojas)",
+        type=["xlsx"]
+    )
+
+    if archivo:
+        hojas = pd.read_excel(archivo, sheet_name=None)
+
+        orden = [
+            "PLANTA DE GAS",
+            "PLANTA DE FRACCIONAMIENTO",
+            "PDUC - DUCTOS & FLOWLINES"
+        ]
+
+        for nombre in orden:
+            if nombre in hojas:
+                st.markdown(f"## {nombre}")
+                st.dataframe(hojas[nombre], use_container_width=True)
+                st.markdown("---")
+            else:
+                st.warning(f"No se encontró la hoja: {nombre}")
+
+    else:
+        st.info("Por favor, sube el archivo Excel de programación semanal.")
+
 
 
