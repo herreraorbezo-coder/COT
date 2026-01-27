@@ -1,11 +1,7 @@
 import streamlit as st
-import pandas as pd
 from datetime import datetime
-from zoneinfo import ZoneInfo
-import plotly.express as px
 import gspread
 from google.oauth2.service_account import Credentials
-
 
 # ========================== GOOGLE AUTH ==========================
 scope = [
@@ -22,255 +18,92 @@ cliente = gspread.authorize(creds)
 sheet = cliente.open("COT_AGUAYTIA").sheet1
 
 
-# ========================== CONFIG STREAMLIT ==========================
-st.set_page_config(
-    page_title="SISTEMA COT - AGUAYTÍA ENERGY S.R.L.",
-    layout="wide",
-    page_icon="🛠️"
-)
-
-st.title("SISTEMA COT - AGUAYTÍA ENERGY S.R.L.")
-st.write("Plataforma para registro de actividades destinadas al COT")
-
-
-# ========================== AREAS ==========================
-areas = {
-    "PRODUCCION": ["BREYSON TALLEDO", "MIGUEL CRUZ"],
-    "MANTENIMIENTO": ["NILTON HINOSTROZA", "GUSTAVO VASQUEZ"],
-    "E&IC": ["OMAR CAYLLAHUA", "MAURO BENAVENTE", "DAWI TORRES"],
-    "ADMINISTRACION": ["ENRIQUE ESPINOZA", "LUCIO ZEVALLOS"],
-    "EHS": ["JOSE BENDEZU", "JACKER RUIZ", "MARCO ALVARADO"],
-    "GIA": ["GARY NAVARRO", "JULIAN RODRIGUEZ", "ADDERLY DE LA CRUZ"]
+# ========================== CATÁLOGO EQUIPOS ==========================
+equipos = {
+    "CO-11-0602A": "COMPRESOR #1",
+    "CO-11-0602B": "COMPRESOR #2",
+    "CO-11-0601A": "COMPRESOR #3",
+    "CO-11-0601B": "COMPRESOR #4",
+    "GE-28-9601A": "GENERADOR WAUKESHA #1",
+    "GE-28-9601B": "GENERADOR WAUKESHA #2",
+    "CR-01": "COOLER REGEN #1",
+    "CR-02": "COOLER REGEN #2",
+    "PU-17-0801": "PRODUCT INJECT PUMP",
+    "TESAXS-12-601": "TURBOEXPANDER",
+    "HESAAS-19-0601-A": "COOLER DE PRODUCTO A",
+    "HESAAS-19-0601-B": "COOLER DE PRODUCTO B",
+    "BH-OIL-A": "BOMBA HOT OIL A",
+    "BH-OIL-B": "BOMBA HOT OIL B",
+    "PU-17-0501A": "BOMBA BOOSTER A",
+    "PU-17-0501B": "BOMBA BOOSTER B",
+    "PU-17-0601A": "BOMBA DE FONDO A",
+    "PU-17-0601B": "BOMBA DE FONDO B",
+    "CO-22-6101A": "COMPRESOR AIR A",
+    "CO-22-6101B": "COMPRESOR AIR B",
+    "PU-17-3047A": "MOTOBOMBA CLARKE SCI A",
+    "PU-17-3047B": "MOTOBOMBA CLARKE SCI B",
+    "PU-17-3048": "JOCKEY CLARKE SCI PUMP",
+    "PU-17-8202": "ELECTROBOMBA ACEITOSA",
+    "PU-17-3802A": "BOMBA CAT A",
+    "PU-17-3802B": "BOMBA CAT B",
+    "PU-17-3802C": "BOMBA CAT C",
+    "PU-17-3801": "BOMBA CAT 2511",
+    "PU-17-3801A": "BOMBA IMBIL INI A",
+    "PU-17-3801B": "BOMBA IMBIL INI B",
+    "PU-17-3801C": "BOMBA INBIL C"
 }
 
-menu = st.tabs([
-    "📋 Registrar Actividad",
-    "📊 Dashboard / KPIs",
-    "📅 Programación Semanal"
-])
+# ========================== INTERFAZ ==========================
+st.set_page_config(page_title="Registro de Horas", layout="centered")
+st.title("📋 Registro de Horas de Operación")
 
-# ====================================================================================
-#                               TAB REGISTRO
-# ====================================================================================
-with menu[0]:
+# ========================== LECTURA DE TAG DESDE QR ==========================
+params = st.query_params
+tag_qr = params.get("tag", None)
 
-    st.subheader("DATOS GENERALES")
+if tag_qr and tag_qr in equipos:
+    tag = tag_qr
+    st.success(f"Equipo reconocido automáticamente por QR: {tag}")
+else:
+    tag = st.selectbox("Seleccione el equipo (TAG)", list(equipos.keys()))
 
-    if "area" not in st.session_state:
-        st.session_state.area = "PRODUCCION"
+equipo = equipos[tag]
 
-    st.session_state.area = st.selectbox("ÁREA", list(areas.keys()))
-
-    with st.form("formulario_cot", clear_on_submit=True):
-
-        supervisor = st.selectbox("SUPERVISOR / OPERADOR", areas[st.session_state.area])
-
-        st.subheader("DATOS DE LA ACTIVIDAD")
-
-        descripcion = st.text_area("DESCRIPCIÓN DE LA ACTIVIDAD * (Obligatorio)")
-
-        col3, col4 = st.columns(2)
-
-        with col3:
-            supervisor_trabajo = st.text_input("SUPERVISOR DE TRABAJO * (Obligatorio)")
-
-        with col4:
-            dueno_area = st.text_input("DUEÑO DE ÁREA * (Obligatorio)")
-
-        enviar = st.form_submit_button("GUARDAR REGISTRO")
-
-    if enviar:
-        if descripcion.strip() == "" or supervisor_trabajo.strip() == "" or dueno_area.strip() == "":
-            st.error("⚠️ No puedes registrar. Hay campos obligatorios vacíos.")
-        else:
-            fecha_registro = datetime.now(
-                ZoneInfo("America/Lima")
-            ).strftime("%Y-%m-%d %H:%M:%S")
-
-            archivo_ats = "No adjuntado"
-
-            nuevo_registro = {
-                "Fecha Registro": fecha_registro,
-                "Área": st.session_state.area,
-                "Supervisor Área": supervisor,
-                "Descripción Actividad": descripcion,
-                "Supervisor de Trabajo": supervisor_trabajo,
-                "Dueño de Área": dueno_area,
-                "Archivo ATS": archivo_ats
-            }
-
-            sheet.append_row([
-                fecha_registro,
-                st.session_state.area,
-                supervisor,
-                descripcion,
-                supervisor_trabajo,
-                dueno_area,
-                archivo_ats
-            ])
-
-            st.success("Registro almacenado correctamente.")
-            st.write("### Resumen del Registro")
-            st.write(nuevo_registro)
-
-    st.subheader("HISTÓRICO DE REGISTROS")
-
-    data_historico = sheet.get_all_records()
-
-    if len(data_historico) == 0:
-        st.info("Aún no hay registros almacenados.")
-    else:
-        df_historico = pd.DataFrame(data_historico)
-        st.dataframe(df_historico, use_container_width=True)
+st.subheader(f"Equipo: {equipo}")
+st.write(f"TAG: {tag}")
 
 
-# ====================================================================================
-#                               TAB DASHBOARD
-# ====================================================================================
-with menu[1]:
+# ========================== BUSCAR ACUMULADO ==========================
+registros = sheet.get_all_records()
 
-    st.subheader("📊 KPIs y Gráficas del COT")
+acumulado_actual = 0
+for fila in reversed(registros):
+    if fila["TAG"] == tag:
+        acumulado_actual = float(fila["Horas_Acumuladas"])
+        break
 
-    data = sheet.get_all_records()
+st.info(f"⏱️ Horas acumuladas actuales: {acumulado_actual}")
 
-    if len(data) == 0:
-        st.info("Aún no hay registros para mostrar KPIs.")
-    else:
-        df = pd.DataFrame(data)
-        df["FechaHora"] = pd.to_datetime(df["Fecha Registro"])
 
-        colk1, colk2, colk3 = st.columns(3)
-        colk1.metric("Total de Registros", len(df))
-        colk2.metric("Áreas Reportando", df["Área"].nunique())
-        colk3.metric("Supervisores Participando", df["Supervisor Área"].nunique())
+# ========================== INGRESO DE HORAS ==========================
+horas_dia = st.number_input("Horas trabajadas hoy", min_value=0.0, step=0.1)
 
-        st.markdown("---")
+nuevo_acumulado = acumulado_actual + horas_dia
+st.write(f"➡️ Nuevo acumulado será: {nuevo_acumulado}")
 
-        st.plotly_chart(
-            px.scatter(
-                df,
-                x="FechaHora",
-                y=[1] * len(df),
-                color="Área",
-                title="Registros por Hora y Área"
-            ).update_yaxes(showticklabels=False, title=None),
-            use_container_width=True
-        )
 
-        st.markdown("---")
+# ========================== GUARDAR ==========================
+if st.button("💾 Guardar registro"):
+    fecha = datetime.now().strftime("%Y-%m-%d %H:%M:%S")
 
-        area_count = df["Área"].value_counts().reset_index()
-        area_count.columns = ["Área", "Cantidad"]
+    sheet.append_row([
+        fecha,
+        tag,
+        equipo,
+        horas_dia,
+        nuevo_acumulado
+    ])
 
-        st.plotly_chart(
-            px.bar(
-                area_count,
-                x="Área",
-                y="Cantidad",
-                color="Área",
-                text="Cantidad"
-            ),
-            use_container_width=True
-        )
-
-        st.markdown("---")
-
-        sup_count = df["Supervisor Área"].value_counts().reset_index()
-        sup_count.columns = ["Supervisor", "Cantidad"]
-
-        st.plotly_chart(
-            px.bar(
-                sup_count,
-                x="Supervisor",
-                y="Cantidad",
-                color="Supervisor",
-                text="Cantidad"
-            ),
-            use_container_width=True
-        )
-
-        st.markdown("---")
-
-        heat = df.copy()
-        heat["Fecha"] = heat["FechaHora"].dt.date
-        heat = heat.groupby(["Fecha", "Área"]).size().reset_index(name="Cantidad")
-
-        st.plotly_chart(
-            px.density_heatmap(
-                heat,
-                x="Fecha",
-                y="Área",
-                z="Cantidad",
-                color_continuous_scale="Blues"
-            ),
-            use_container_width=True
-        )
-
-        st.markdown("---")
-
-        pie_data = df["Área"].value_counts().reset_index()
-        pie_data.columns = ["Área", "Cantidad"]
-
-        st.plotly_chart(
-            px.pie(
-                pie_data,
-                names="Área",
-                values="Cantidad",
-                hole=0.4,
-                title="Distribución porcentual de registros por Área"
-            ),
-            use_container_width=True
-        )
-
-        st.markdown("---")
-
-        meta = st.slider("Meta mínima diaria de registros:", 1, 50, 5)
-
-        daily = df.groupby(df["FechaHora"].dt.date).size().reset_index(name="Cantidad")
-
-        cumplimiento = []
-        for _, total in daily.values:
-            cumplimiento.append(min(100, int((total / meta) * 100)))
-
-        avg_cumplimiento = int(sum(cumplimiento) / len(cumplimiento))
-
-        if avg_cumplimiento >= 90:
-            st.success(f"Cumplimiento promedio: {avg_cumplimiento}%")
-        elif avg_cumplimiento >= 60:
-            st.warning(f"Cumplimiento promedio: {avg_cumplimiento}%")
-        else:
-            st.error(f"Cumplimiento promedio: {avg_cumplimiento}%")
-# ====================================================================================
-#                               TAB PROGRAMACIÓN SEMANAL
-# ====================================================================================
-with menu[2]:
-
-    st.subheader("📅 Programación Semanal de Trabajos")
-
-    archivo = st.file_uploader(
-        "Sube el archivo Excel semanal (con 3 hojas)",
-        type=["xlsx"]
-    )
-
-    if archivo:
-        hojas = pd.read_excel(archivo, sheet_name=None)
-
-        orden = [
-            "PLANTA DE GAS",
-            "PLANTA DE FRACCIONAMIENTO",
-            "PDUC - DUCTOS & FLOWLINES"
-        ]
-
-        for nombre in orden:
-            if nombre in hojas:
-                st.markdown(f"## {nombre}")
-                st.dataframe(hojas[nombre], use_container_width=True)
-                st.markdown("---")
-            else:
-                st.warning(f"No se encontró la hoja: {nombre}")
-
-    else:
-        st.info("Por favor, sube el archivo Excel de programación semanal.")
-
+    st.success("✅ Registro guardado correctamente")
 
 
