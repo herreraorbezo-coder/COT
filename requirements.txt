@@ -2,6 +2,7 @@ streamlit
 gspread
 google-auth
 opencv-python-headless
-pyzbar
 pillow
 numpy
+
+
