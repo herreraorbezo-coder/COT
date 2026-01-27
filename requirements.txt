@@ -1,8 +1,7 @@
 streamlit
-pandas
-plotly
 gspread
 google-auth
-pydrive2
-openpyxl
-
+opencv-python-headless
+pyzbar
+pillow
+numpy
