@@ -6,6 +6,7 @@ from google.oauth2.service_account import Credentials
 from PIL import Image
 import numpy as np
 import cv2
+import os   # 👈 NUEVO
 
 
 # ========================== GOOGLE AUTH ==========================
@@ -69,7 +70,8 @@ imagen = st.camera_input("Toma una foto clara del QR del equipo")
 
 tag = None
 
-# ========================== DETECTOR QR CON OPENCV ==========================
+
+# ========================== DETECTOR QR ==========================
 if imagen is not None:
     img = Image.open(imagen)
     img_np = np.array(img)
@@ -80,11 +82,8 @@ if imagen is not None:
     if data:
         st.success(f"QR detectado: {data}")
 
-        # Si contiene solo TAG
         if data in equipos:
             tag = data
-
-        # Si contiene URL con ?tag=
         elif "tag=" in data:
             tag = data.split("tag=")[-1]
 
@@ -107,6 +106,20 @@ equipo = equipos[tag]
 
 st.subheader(f"Equipo: {equipo}")
 st.write(f"TAG: {tag}")
+
+
+# ========================== MOSTRAR IMAGEN DEL EQUIPO ==========================
+imagen_encontrada = False
+
+for ext in ["jpg", "png", "jpeg"]:
+    ruta = f"equipos_img/{tag}.{ext}"
+    if os.path.exists(ruta):
+        st.image(ruta, caption=f"{equipo}", use_container_width=True)
+        imagen_encontrada = True
+        break
+
+if not imagen_encontrada:
+    st.warning("⚠️ No hay imagen registrada para este equipo")
 
 
 # ========================== BUSCAR ACUMULADO ==========================
@@ -141,4 +154,3 @@ if st.button("💾 Guardar registro"):
     ])
 
     st.success("✅ Registro guardado correctamente")
-
