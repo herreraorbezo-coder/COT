@@ -6,7 +6,6 @@ from google.oauth2.service_account import Credentials
 from PIL import Image
 import numpy as np
 import cv2
-from pyzbar.pyzbar import decode
 
 
 # ========================== GOOGLE AUTH ==========================
@@ -65,45 +64,46 @@ st.set_page_config(page_title="Registro de Horas", layout="centered")
 st.title("📋 Registro de Horas de Operación")
 
 st.subheader("📷 Escanear QR del equipo")
-imagen = st.camera_input("Toma una foto clara del QR")
+
+imagen = st.camera_input("Toma una foto clara del QR del equipo")
 
 tag = None
 
-# ========================== LECTURA DE QR ==========================
+# ========================== DETECTOR QR CON OPENCV ==========================
 if imagen is not None:
     img = Image.open(imagen)
     img_np = np.array(img)
-    img_cv = cv2.cvtColor(img_np, cv2.COLOR_RGB2BGR)
 
-    codigos = decode(img_cv)
+    detector = cv2.QRCodeDetector()
+    data, bbox, _ = detector.detectAndDecode(img_np)
 
-    if codigos:
-        texto = codigos[0].data.decode("utf-8")
-        st.success(f"QR detectado: {texto}")
+    if data:
+        st.success(f"QR detectado: {data}")
 
-        # Si QR tiene solo TAG
-        if texto in equipos:
-            tag = texto
+        # Si contiene solo TAG
+        if data in equipos:
+            tag = data
 
-        # Si QR tiene URL con ?tag=
-        elif "tag=" in texto:
-            tag = texto.split("tag=")[-1]
+        # Si contiene URL con ?tag=
+        elif "tag=" in data:
+            tag = data.split("tag=")[-1]
 
     else:
-        st.error("❌ No se detectó ningún QR. Intenta nuevamente.")
+        st.error("❌ No se pudo detectar ningún QR. Intenta con mejor iluminación.")
 
 
-# ========================== SI NO HAY TAG ==========================
+# ========================== VALIDACIÓN ==========================
 if not tag:
     st.info("Escanee un QR válido para continuar")
     st.stop()
 
-# ========================== MOSTRAR EQUIPO ==========================
-equipo = equipos.get(tag)
-
-if not equipo:
+if tag not in equipos:
     st.error("TAG no reconocido en el sistema")
     st.stop()
+
+
+# ========================== MOSTRAR EQUIPO ==========================
+equipo = equipos[tag]
 
 st.subheader(f"Equipo: {equipo}")
 st.write(f"TAG: {tag}")
