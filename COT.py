@@ -36,6 +36,10 @@ equipos = {
     "CR-02": "COOLER REGEN #2",
     "PU-17-0801": "PRODUCT INJECT PUMP",
     "TESAXS-12-601": "TURBOEXPANDER",
+    "CCO-11-0601A": "COOLER ING. GAS A",
+    "CCO-11-0601B": "COOLER ING. GAS B",
+    "CCO-11-0602C": "COOLER ING. GAS C",
+    "CCO-11-0602D": "COOLER ING. GAS D",
     "HESAAS-19-0601-A": "COOLER DE PRODUCTO A",
     "HESAAS-19-0601-B": "COOLER DE PRODUCTO B",
     "BH-OIL-A": "BOMBA HOT OIL A",
@@ -49,6 +53,8 @@ equipos = {
     "PU-17-3047A": "MOTOBOMBA CLARKE SCI A",
     "PU-17-3047B": "MOTOBOMBA CLARKE SCI B",
     "PU-17-3048": "JOCKEY CLARKE SCI PUMP",
+    "CCO-22-6101A": "BOMBA HELICOIDAL KO A",
+    "CCO-22-6101B": "BOMBA HELICOIDAL KO B",
     "PU-17-8202": "ELECTROBOMBA ACEITOSA",
     "PU-17-3802A": "BOMBA CAT A",
     "PU-17-3802B": "BOMBA CAT B",
@@ -154,3 +160,4 @@ if st.button("💾 Guardar registro"):
     ])
 
     st.success("✅ Registro guardado correctamente")
+
