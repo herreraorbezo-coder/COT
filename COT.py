@@ -1,5 +1,6 @@
 import streamlit as st
 from datetime import datetime
+from zoneinfo import ZoneInfo
 import gspread
 from google.oauth2.service_account import Credentials
 
@@ -149,7 +150,7 @@ st.write(f"➡️ Nuevo acumulado será: {nuevo_acumulado}")
 
 # ========================== GUARDAR ==========================
 if st.button("💾 Guardar registro"):
-    fecha = datetime.now().strftime("%Y-%m-%d %H:%M:%S")
+    fecha = datetime.now(ZoneInfo("America/Lima")).strftime("%Y-%m-%d %H:%M:%S")
 
     sheet.append_row([
         fecha,
@@ -160,4 +161,5 @@ if st.button("💾 Guardar registro"):
     ])
 
     st.success("✅ Registro guardado correctamente")
+
 
